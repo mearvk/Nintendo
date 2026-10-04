@@ -1,0 +1,14 @@
+# Build outputs for the NES Professional Editor
+*.o
+*.a
+c/nes-edit
+cpp/nes-edit-cpp
+java/build/
+
+# Editor-generated working copies in samples/ (keep the inputs, not the outputs)
+samples/*.edited.nes
+samples/sample.*.nes
+samples/*.c.nes
+samples/*.cpp.nes
+samples/*.java.nes
+samples/tbl-out*.nes

@@ -1,0 +1,86 @@
+#sleela 1.3
+// NesEditModel.sleela -- the editing MODEL for the NES Professional Editor,
+// expressed in SLeeLa.
+//
+// Part of mearvk/Nintendo. This program ships no copyrighted ROM content; it
+// describes and validates how a text/menu edit SHOULD be shaped before any
+// bytes are touched. The binary read/modify/write is done by the C, C++, and
+// Java tools (SLeeLa's file surface is string-oriented, not raw-byte, so it
+// owns the strategy/validation layer rather than the byte I/O).
+//
+// The model enforces the editor's one safety invariant: a replacement, once it
+// is laid into a fixed-width PRG-ROM slot, must not exceed the slot length --
+// otherwise pointers and bank boundaries would move. SLeeLa checks each planned
+// edit against that rule and reports a clear verdict.
+
+// One planned text/menu slot edit.
+struct SlotEdit {
+    String kind;      // "text" | "menu"
+    String name;      // menu-item name ("" for plain text)
+    int    offset;    // absolute file offset of the slot
+    int    len;       // fixed slot length in bytes
+    int    newLen;    // encoded length of the replacement
+    String newText;   // the replacement (for reporting)
+}
+
+class NesEditModel {
+
+    // The slot invariant: the encoded replacement must fit the slot. Shorter is
+    // fine (the byte tools pad with the table fill byte); longer is refused.
+    int fits(SlotEdit e) {
+        if (e.newLen <= e.len) { return 1; }
+        return 0;
+    }
+
+    // Verdict line for one planned edit.
+    void report(SlotEdit e) {
+        String where = "@0x" + e.offset + " [" + e.len + "]";
+        String label = e.kind;
+        if (e.name != "") { label = e.kind + " '" + e.name + "'"; }
+        if (fits(e) == 1) {
+            int slack = e.len - e.newLen;
+            print("OK    " + label + " " + where + " <- \"" + e.newText
+                  + "\" (" + e.newLen + "/" + e.len + ", pad " + slack + ")");
+        } else {
+            int over = e.newLen - e.len;
+            print("REFUSE " + label + " " + where + " <- \"" + e.newText
+                  + "\" (" + e.newLen + "/" + e.len + ", OVER by " + over + ")");
+        }
+    }
+
+    // Build a planned edit (encoded length is supplied by the caller; the byte
+    // tools compute it from the active character table).
+    SlotEdit plan(String kind, String name, int offset, int len, int newLen, String newText) {
+        SlotEdit e = new SlotEdit();
+        e.kind = kind; e.name = name; e.offset = offset;
+        e.len = len; e.newLen = newLen; e.newText = newText;
+        return e;
+    }
+
+    void main() {
+        print("== NES Professional Editor -- SLeeLa edit model ==");
+        print("Invariant: encoded replacement length <= slot length.");
+        print("");
+
+        // A worked plan over the synthetic sample ROM (samples/sample.nes).
+        // These mirror samples/demo.edit so the model and the byte tools agree.
+        report(plan("menu", "NewGame", 272, 12,  8, "NEW GAME"));   // 0x110
+        report(plan("menu", "Load",    288, 12,  4, "LOAD"));       // 0x120
+        report(plan("text", "",        320, 16, 13, "GREETINGS ALL"));// 0x140
+
+        print("");
+        print("-- strategy: thinking games --");
+        // Strategy/puzzle/RPG titles are text-heavy: menus, item names, spell
+        // lists, map labels -- all fixed-width PRG-ROM strings. The model keeps
+        // every rename within its slot so the ROM stays structurally valid.
+        report(plan("menu", "Attack",  512, 8, 6, "ATTACK"));
+        report(plan("menu", "Defend",  520, 8, 6, "DEFEND"));
+        report(plan("menu", "TooLong", 528, 8, 10, "OVERLONGXX")); // refused on purpose
+
+        print("");
+        print("Hand the OK edits to a byte tool as a .edit script:");
+        print("  nes-edit apply in.nes script.edit out.nes   (C)");
+        print("  nes-edit-cpp apply in.nes script.edit out.nes (C++)");
+        print("  java ... NesEditCli apply in.nes script.edit out.nes (Java)");
+    }
+}

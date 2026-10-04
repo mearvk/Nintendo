@@ -1,0 +1,2 @@
+find 110 12 WRONGTEXT
+set 110 12 X

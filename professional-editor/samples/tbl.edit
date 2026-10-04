@@ -1,0 +1,3 @@
+table demo.tbl
+find 110 10 MENU
+set  110 10 ITEMS
