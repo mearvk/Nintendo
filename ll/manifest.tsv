@@ -1,0 +1,5 @@
+# Light-load manifest — titles a workflow references, by filename only.
+# No ROM data is stored here; this is a text index. Columns are tab-separated.
+#
+# id	title	filename	system	status	notes
+# (add rows as you set up editor workflows; the ROM itself stays local)
