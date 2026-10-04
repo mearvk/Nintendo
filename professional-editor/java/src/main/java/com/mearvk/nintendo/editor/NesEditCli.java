@@ -22,9 +22,11 @@ import java.util.List;
  *
  * <p>Usage:
  * <pre>
- *   NesEditCli info  &lt;rom.nes&gt;
- *   NesEditCli dump  &lt;rom.nes&gt; &lt;offset-hex&gt; &lt;len&gt; [table.tbl]
- *   NesEditCli apply &lt;in.nes&gt; &lt;script.edit&gt; &lt;out.nes&gt;
+ *   NesEditCli info    &lt;rom.nes&gt;
+ *   NesEditCli dump    &lt;rom.nes&gt; &lt;offset-hex&gt; &lt;len&gt; [table.tbl]
+ *   NesEditCli apply   &lt;in.nes&gt; &lt;script.edit&gt; &lt;out.nes&gt;
+ *   NesEditCli recurve &lt;rom.nes&gt;
+ *   NesEditCli refresh &lt;in.nes&gt; &lt;out.nes&gt;
  * </pre>
  */
 public final class NesEditCli {
@@ -33,10 +35,12 @@ public final class NesEditCli {
         if (args.length < 1) { usage(); System.exit(2); }
         try {
             switch (args[0]) {
-                case "info"  -> { requireArgs(args, 2); System.exit(info(Path.of(args[1]))); }
-                case "dump"  -> { requireArgs(args, 4); System.exit(dump(args)); }
-                case "apply" -> { requireArgs(args, 4); System.exit(apply(Path.of(args[1]), Path.of(args[2]), Path.of(args[3]))); }
-                default      -> { usage(); System.exit(2); }
+                case "info"    -> { requireArgs(args, 2); System.exit(info(Path.of(args[1]))); }
+                case "dump"    -> { requireArgs(args, 4); System.exit(dump(args)); }
+                case "apply"   -> { requireArgs(args, 4); System.exit(apply(Path.of(args[1]), Path.of(args[2]), Path.of(args[3]))); }
+                case "recurve" -> { requireArgs(args, 2); System.exit(recurve(Path.of(args[1]))); }
+                case "refresh" -> { requireArgs(args, 3); System.exit(refresh(Path.of(args[1]), Path.of(args[2]))); }
+                default        -> { usage(); System.exit(2); }
             }
         } catch (NesException | IOException e) {
             System.err.println("error: " + e.getMessage());
@@ -108,6 +112,32 @@ public final class NesEditCli {
         return 0;
     }
 
+    private static int recurve(Path path) throws IOException, NesException {
+        NesRom rom = NesRom.load(path);
+        NesRom.Report rep = rom.recurve();
+        System.out.printf("recurve: integrity audit of %s%n", path);
+        for (NesRom.Finding f : rep.findings) {
+            System.out.printf("  [%-5s] %-8s %s%n",
+                    NesRom.severityStr(f.severity()), f.check(), f.message());
+        }
+        System.out.printf("  fingerprint fnv1a64:%016X%n", rom.fingerprint());
+        System.out.printf("verdict: %s%n", switch (rep.worst) {
+            case OK -> "HEALTHY";
+            case WARN -> "HEALTHY (with warnings)";
+            case ERROR -> "DAMAGED";
+        });
+        return rep.worst == NesRom.Severity.ERROR ? 1 : 0;
+    }
+
+    private static int refresh(Path in, Path out) throws IOException, NesException {
+        NesRom rom = NesRom.load(in);
+        long fp = rom.refresh(out);
+        System.out.printf("refreshed %s -> %s (%d bytes)%n", in, out, rom.size());
+        System.out.printf("  fingerprint fnv1a64:%016X%n", fp);
+        System.out.printf("  provenance  %s.provenance%n", out);
+        return 0;
+    }
+
     /** First whitespace-delimited word. */
     private static String firstWord(String line) {
         int sp = indexOfWs(line, 0);
@@ -158,9 +188,11 @@ public final class NesEditCli {
         System.err.println("""
             NesEditCli -- NES ROM text/menu editor (Java)
             usage:
-              NesEditCli info  <rom.nes>
-              NesEditCli dump  <rom.nes> <offset-hex> <len> [table.tbl]
-              NesEditCli apply <in.nes> <script.edit> <out.nes>""");
+              NesEditCli info    <rom.nes>
+              NesEditCli dump    <rom.nes> <offset-hex> <len> [table.tbl]
+              NesEditCli apply   <in.nes> <script.edit> <out.nes>
+              NesEditCli recurve <rom.nes>
+              NesEditCli refresh <in.nes> <out.nes>""");
     }
 
     private NesEditCli() {}

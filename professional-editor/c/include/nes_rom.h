@@ -98,6 +98,63 @@ nes_status nes_expect_text(const nes_rom *rom, const nes_table *tbl,
 /* Human-readable message for a status code. */
 const char *nes_strerror(nes_status s);
 
+/* ---- integrity audit (recurve) & provenance refresh (refresh) -------- */
+
+/*
+ * A single finding from a `recurve` health audit. `severity` is one of the
+ * NES_SEV_* values; `message` is a static or rom-lifetime string.
+ */
+#define NES_SEV_OK    0   /* informational: a check passed                 */
+#define NES_SEV_WARN  1   /* non-fatal: unusual but structurally valid     */
+#define NES_SEV_ERROR 2   /* the image is malformed or damaged             */
+
+typedef struct {
+    int  severity;          /* NES_SEV_*                                   */
+    char check[16];         /* short name of the check ("header", "chr#3") */
+    char message[160];
+} nes_finding;
+
+/*
+ * The result of a full integrity audit. `findings[0..count)` are populated in
+ * audit order; `worst` is the highest severity seen (NES_SEV_OK if all passed).
+ */
+#define NES_MAX_FINDINGS 128
+typedef struct {
+    nes_finding findings[NES_MAX_FINDINGS];
+    size_t      count;
+    int         worst;      /* NES_SEV_* */
+} nes_report;
+
+/*
+ * recurve: audit the ROM's structural and image health without modifying it.
+ *   - header soundness (magic, bank counts, mapper, trainer flag)
+ *   - size consistency (header + trainer + PRG + CHR vs. file length)
+ *   - per-CHR-bank "embedded image" checks: blank (all 0x00) / erased
+ *     (all 0xFF) banks are flagged; each bank's checksum is recorded
+ *   - PRG tail-fill observation
+ * Fills `rep`. Returns NES_OK unless an argument is bad.
+ */
+nes_status nes_recurve(const nes_rom *rom, nes_report *rep);
+
+/* Severity label ("ok" | "warn" | "error"). */
+const char *nes_severity_str(int severity);
+
+/*
+ * A stable 64-bit content fingerprint (FNV-1a) over the whole image. Shared by
+ * all four implementations so a refresh checksum is comparable across tools.
+ */
+uint64_t nes_fingerprint(const nes_rom *rom);
+
+/*
+ * refresh: write a clean, canonical re-emission of a ROM the user already owns
+ * to `out_path` (byte-identical payload, re-serialized), and write a sidecar
+ * provenance record to "<out_path>.provenance" carrying an ISO-8601 UTC refresh
+ * timestamp and the image fingerprint. No ROM content is synthesized or
+ * generated; the copyrighted bytes are never altered. The fingerprint, if
+ * non-NULL, is returned via `out_fp`.
+ */
+nes_status nes_refresh(const nes_rom *rom, const char *out_path, uint64_t *out_fp);
+
 #ifdef __cplusplus
 }
 #endif

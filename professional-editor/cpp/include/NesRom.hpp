@@ -79,6 +79,37 @@ public:
     bool expectText(std::size_t offset, std::size_t len, const std::string& expected,
                     const CharTable& tbl = CharTable{}) const;
 
+    // --- integrity audit (recurve) & provenance refresh (refresh) ---
+
+    enum class Severity { Ok, Warn, Error };
+
+    struct Finding {
+        Severity    severity;
+        std::string check;    // short check name ("header", "chr#3")
+        std::string message;
+    };
+
+    struct Report {
+        std::vector<Finding> findings;
+        Severity worst = Severity::Ok;
+    };
+
+    // A stable 64-bit FNV-1a fingerprint over the whole image. Matches the
+    // C / Java / SLeeLa tools so refresh checksums compare across languages.
+    std::uint64_t fingerprint() const;
+
+    // recurve: audit structural + embedded-image (CHR tile bank) health
+    // without modifying the ROM. Returns a Report; see Report::worst.
+    Report recurve() const;
+
+    // refresh: write a clean, canonical re-emission of this owned ROM to
+    // `outPath` (byte-identical payload) and a sidecar provenance record at
+    // "<outPath>.provenance" (ISO-8601 UTC timestamp + fingerprint). No ROM
+    // content is synthesized. Returns the fingerprint written.
+    std::uint64_t refresh(const std::string& outPath) const;
+
+    static const char* severityStr(Severity s);
+
 private:
     void resolveRegions();
     void checkSlot(std::size_t offset, std::size_t len) const;

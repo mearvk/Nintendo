@@ -57,6 +57,60 @@ class NesEditModel {
         return e;
     }
 
+    // ---- recurve: the ROM health-audit MODEL --------------------------
+    //
+    // recurve inspects a ROM you own and reports its structural + embedded-
+    // image health. The byte tools (C/C++/Java) read the raw file; SLeeLa owns
+    // the *verdict logic*: given the per-check severities the byte tools
+    // compute, how do they combine into one overall verdict? The rule is simple
+    // and must match the byte tools exactly: the overall verdict is the worst
+    // single severity observed (OK < WARN < ERROR).
+
+    // One audit check result. severity: 0 = ok, 1 = warn, 2 = error.
+    // (kept as a plain field so this model has no byte dependency)
+    int worseOf(int a, int b) {
+        if (a >= b) { return a; }
+        return b;
+    }
+
+    String severityName(int sev) {
+        if (sev == 2) { return "error"; }
+        if (sev == 1) { return "warn"; }
+        return "ok";
+    }
+
+    String overallVerdict(int worst) {
+        if (worst == 2) { return "DAMAGED"; }
+        if (worst == 1) { return "HEALTHY (with warnings)"; }
+        return "HEALTHY";
+    }
+
+    void reportCheck(String name, int sev, String message) {
+        print("  [" + severityName(sev) + "] " + name + " -- " + message);
+    }
+
+    // ---- refresh: the provenance MODEL --------------------------------
+    //
+    // refresh re-emits a ROM you own byte-for-byte and writes a sidecar
+    // provenance record (timestamp + content fingerprint). The one invariant
+    // SLeeLa checks: a refresh must NOT change the content fingerprint -- the
+    // bytes in == bytes out. If the fingerprint changed, the operation was not
+    // a faithful re-emission and must be refused.
+    int refreshIsFaithful(String fpBefore, String fpAfter) {
+        if (fpBefore == fpAfter) { return 1; }
+        return 0;
+    }
+
+    void reportRefresh(String image, String fpBefore, String fpAfter) {
+        if (refreshIsFaithful(fpBefore, fpAfter) == 1) {
+            print("OK     refresh '" + image + "' faithful (fp " + fpAfter
+                  + " unchanged); provenance sidecar may be written");
+        } else {
+            print("REFUSE refresh '" + image + "' altered content (fp "
+                  + fpBefore + " -> " + fpAfter + "); not a re-emission");
+        }
+    }
+
     void main() {
         print("== NES Professional Editor -- SLeeLa edit model ==");
         print("Invariant: encoded replacement length <= slot length.");
@@ -82,5 +136,37 @@ class NesEditModel {
         print("  nes-edit apply in.nes script.edit out.nes   (C)");
         print("  nes-edit-cpp apply in.nes script.edit out.nes (C++)");
         print("  java ... NesEditCli apply in.nes script.edit out.nes (Java)");
+
+        print("");
+        print("-- recurve: ROM health audit model --");
+        print("Overall verdict = worst single check severity (ok<warn<error).");
+        // These mirror a byte-tool recurve run over a healthy single-bank ROM.
+        int worst = 0;
+        reportCheck("header",   0, "iNES magic present");            worst = worseOf(worst, 0);
+        reportCheck("prg",      0, "1 PRG bank(s); mapper 0");        worst = worseOf(worst, 0);
+        reportCheck("size",     0, "file length matches header");     worst = worseOf(worst, 0);
+        reportCheck("chr#0",    0, "CHR bank 0 intact, tiles present");worst = worseOf(worst, 0);
+        print("  verdict: " + overallVerdict(worst));
+        print("");
+        // And a damaged ROM: a truncated CHR bank drives the verdict to DAMAGED.
+        int worst2 = 0;
+        reportCheck("header", 0, "iNES magic present");                 worst2 = worseOf(worst2, 0);
+        reportCheck("size",   2, "truncated: header declares more than file");
+        worst2 = worseOf(worst2, 2);
+        reportCheck("chr#0",  2, "CHR bank 0 extends past end of file"); worst2 = worseOf(worst2, 2);
+        print("  verdict: " + overallVerdict(worst2));
+
+        print("");
+        print("-- refresh: provenance model (bytes in == bytes out) --");
+        reportRefresh("your.nes", "fnv1a64:C4CD9BFA60F816EF",
+                                  "fnv1a64:C4CD9BFA60F816EF");  // faithful
+        reportRefresh("your.nes", "fnv1a64:C4CD9BFA60F816EF",
+                                  "fnv1a64:0000000000000000"); // refused
+
+        print("");
+        print("Run the audit / re-emission with a byte tool over a ROM you own:");
+        print("  nes-edit recurve your.nes          (C)");
+        print("  nes-edit-cpp recurve your.nes      (C++)");
+        print("  java ... NesEditCli refresh your.nes your.refreshed.nes (Java)");
     }
 }

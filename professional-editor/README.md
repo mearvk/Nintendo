@@ -20,6 +20,16 @@ Java**. Part of the `mearvk/Nintendo` studio.
 - **Safety invariant** — a replacement, once encoded, must fit the original
   slot length (shorter is padded). The editor never relocates data or rewrites
   pointers, so the ROM stays structurally valid.
+- **Audit health (`recurve`)** — a non-destructive integrity audit: it checks
+  the iNES header, verifies the file length against the declared regions, and
+  inspects each **CHR (tile) bank** — the ROM's embedded images — flagging banks
+  that are truncated/damaged, blank (all `0x00`), or erased (all `0xFF`), and
+  fingerprinting the intact ones. Prints a per-check report and an overall
+  verdict (`HEALTHY` / `HEALTHY (with warnings)` / `DAMAGED`).
+- **Refresh a working copy (`refresh`)** — re-emit a clean, canonical,
+  **byte-identical** copy of a ROM you own and write a `*.provenance` sidecar
+  recording *when* it was re-emitted and its content fingerprint. No ROM content
+  is ever synthesized; the copyrighted bytes are copied through unchanged.
 
 ## The four implementations
 
@@ -61,7 +71,39 @@ c/nes-edit dump your.nes 1A2C 16 your.tbl
 
 # Apply an edit script to a working copy (originals stay untouched)
 c/nes-edit apply your.nes edits.edit your.edited.nes
+
+# Audit a ROM's structural + embedded-image (CHR) health (read-only)
+c/nes-edit recurve your.nes
+
+# Re-emit a clean, byte-identical working copy + a provenance sidecar
+c/nes-edit refresh your.nes your.refreshed.nes
+# -> writes your.refreshed.nes and your.refreshed.nes.provenance
 ```
+
+### `recurve` — ROM health audit
+
+`recurve` reads a ROM you own and reports its health without modifying it:
+
+```
+recurve: integrity audit of your.nes
+  [ok   ] header   iNES magic present
+  [ok   ] prg      1 PRG bank(s), 16384 bytes; mapper 0
+  [ok   ] size     file length matches header
+  [ok   ] chr#0    CHR bank 0 intact, tiles present (fp 0ED66757F6EC6325)
+  fingerprint fnv1a64:C4CD9BFA60F816EF
+verdict: HEALTHY
+```
+
+The overall verdict is the worst single check severity (`ok` < `warn` <
+`error`); the process exits non-zero only when the image is actually malformed
+or damaged. The content fingerprint is a 64-bit **FNV-1a** over the whole image,
+computed identically by all four implementations.
+
+### `refresh` — canonical re-emission + provenance
+
+`refresh` writes a byte-identical copy of your ROM and a text `*.provenance`
+sidecar (an ISO-8601 UTC timestamp + the fingerprint). It records the lineage of
+a working copy; it never generates or reconstructs ROM content.
 
 The C++ (`cpp/nes-edit-cpp`) and Java (`NesEditCli`) tools take identical
 arguments. See [`docs/WORKFLOW.md`](docs/WORKFLOW.md) for a full worked example
