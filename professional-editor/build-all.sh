@@ -21,4 +21,12 @@ echo "  run: java -cp java/build/classes com.mearvk.nintendo.editor.NesEditCli"
 echo "== SLeeLa =="
 echo "SLeeLa model is interpreted: sleela run $ROOT/sleela/NesEditModel.sleela"
 
+echo "== Strategy Analysis (C / C++ / Java) =="
+make -C "$ROOT/strategy-analysis/c"
+make -C "$ROOT/strategy-analysis/cpp"
+mkdir -p "$ROOT/strategy-analysis/java/build/classes"
+javac -d "$ROOT/strategy-analysis/java/build/classes" $(find "$ROOT/strategy-analysis/java/src" -name '*.java')
+echo "Built strategy-analysis: c/nes-strat, cpp/nes-strat-cpp, java/build/classes"
+echo "SLeeLa strategy model: sleela run $ROOT/strategy-analysis/sleela/StrategyModel.sleela"
+
 echo "Done."

@@ -1,0 +1,16 @@
+# seq	event	pc	arg	decision
+1	exec	C000	-	boot
+2	exec	C003	-	boot
+3	branch	C005	taken=0	boot
+4	exec	C040	-	boot
+5	read	-	addr=0300	menu:ATTACK
+6	jtbl	C070	index=0	menu:ATTACK
+7	exec	C050	-	menu:ATTACK
+8	exec	C052	-	menu:ATTACK
+9	read	-	addr=0301	menu:DEFEND
+10	jtbl	C070	index=1	menu:DEFEND
+11	exec	C055	-	menu:DEFEND
+12	write	-	addr=0010	npc:aggress
+13	jtbl	C070	index=2	npc:aggress
+14	exec	C05A	-	npc:aggress
+15	branch	C05C	taken=1	npc:aggress
