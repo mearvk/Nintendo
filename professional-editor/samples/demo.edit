@@ -1,0 +1,5 @@
+# Edit the synthetic sample ROM's menu items and text
+find 110 12 START GAME
+menu NewGame 110 12 NEW GAME
+menu Load     120 12 LOAD
+set  140 16 GREETINGS ALL

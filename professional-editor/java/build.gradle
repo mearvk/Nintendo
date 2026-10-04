@@ -1,0 +1,26 @@
+// NES Professional Editor -- Java build.
+// Pure JDK (no external dependencies). Java 21.
+plugins {
+    id 'application'
+}
+
+group = 'com.mearvk.nintendo'
+version = '1.0.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src/main/java']
+        }
+    }
+}
+
+application {
+    mainClass = 'com.mearvk.nintendo.editor.NesEditCli'
+}
