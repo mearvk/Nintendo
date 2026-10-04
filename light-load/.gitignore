@@ -1,0 +1,13 @@
+# light-load keeps NO ROM data. Block ROM/image formats from being committed here.
+*.nes
+*.zip
+*.sfc
+*.smc
+*.gb
+*.gba
+*.n64
+*.z64
+*.rom
+*.bin
+# Local working copies produced by the editor:
+*.edited.nes
