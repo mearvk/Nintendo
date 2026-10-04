@@ -1,0 +1,85 @@
+#sleela 1.3
+// StrategyModel.sleela -- the strategy-analysis MODEL, expressed in SLeeLa.
+//
+// Part of mearvk/Nintendo. Ships no copyrighted ROM content and copies no game
+// code. The byte-level work (6502 disassembly, jump-table detection, trace
+// ingestion) is done by the C / C++ / Java tools -- SLeeLa's file surface is
+// string-oriented, not raw-byte, and it has no disassembler. So SLeeLa owns the
+// *method and the reasoning*: given the per-decision coverage counts the byte
+// tools produce, it classifies how strongly each decision's "strategy" was
+// observed, and prints the honesty discipline every report must carry.
+//
+// This mirrors the Strategy Evidence Report (see ../docs/METHOD.md): one record
+// per decision context, with exec/branch/jump-table/write counts, and a verdict
+// about confidence -- never a claim that the strategy was fully extracted.
+
+// Observed coverage for one decision context (player/NPC choice).
+struct DecisionEvidence {
+    String name;        // e.g. "menu:ATTACK", "npc:aggress", "boot"
+    int    execs;       // distinct code addresses exercised
+    int    branches;    // conditional branches seen
+    int    taken;       // of those, taken
+    int    writes;      // RAM writes (state changes -- a strategy signal)
+    int    jtables;     // jump-table dispatches (decision routing)
+    int    firstAddr;   // first exercised address (routine entry hint)
+}
+
+class StrategyModel {
+
+    // A confidence verdict for one decision's observed strategy. This is about
+    // how much EVIDENCE a trace gave us -- not a claim of completeness.
+    String verdict(DecisionEvidence d) {
+        // A decision routed through a jump table AND that writes state AND runs
+        // several blocks is strong evidence of a distinct strategy branch.
+        if (d.jtables >= 1 && d.writes >= 1 && d.execs >= 2) {
+            return "STRONG   (routed + mutates state + multi-block)";
+        }
+        if (d.jtables >= 1 && d.execs >= 1) {
+            return "MODERATE (dispatched to a distinct routine)";
+        }
+        if (d.execs >= 1) {
+            return "WEAK     (code ran, no decision routing observed)";
+        }
+        return "NONE     (no code exercised under this decision)";
+    }
+
+    void report(DecisionEvidence d) {
+        print("decision '" + d.name + "'  entry=0x" + d.firstAddr
+              + "  execs=" + d.execs + " branches=" + d.branches
+              + " taken=" + d.taken + " writes=" + d.writes
+              + " jtbl=" + d.jtables);
+        print("    verdict: " + verdict(d));
+    }
+
+    DecisionEvidence ev(String name, int execs, int branches, int taken,
+                        int writes, int jtables, int firstAddr) {
+        DecisionEvidence d = new DecisionEvidence();
+        d.name = name; d.execs = execs; d.branches = branches; d.taken = taken;
+        d.writes = writes; d.jtables = jtables; d.firstAddr = firstAddr;
+        return d;
+    }
+
+    void main() {
+        print("== NES Strategy Analysis -- SLeeLa model ==");
+        print("Confidence model over per-decision coverage from the byte tools.");
+        print("");
+
+        // These mirror strat-sample.evidence.md produced by the C/C++/Java tools
+        // over the synthetic sample ROM + trace. SLeeLa reasons about them.
+        report(ev("boot",        3, 1, 0, 0, 0, 49152));  // 0xC000
+        report(ev("menu:ATTACK", 2, 0, 0, 0, 1, 49232));  // 0xC050
+        report(ev("menu:DEFEND", 1, 0, 0, 0, 1, 49237));  // 0xC055
+        report(ev("npc:aggress", 1, 1, 1, 1, 1, 49242));  // 0xC05A -- strongest
+
+        print("");
+        print("-- the honesty discipline (every report carries this) --");
+        print("Static analysis under-approximates (misses computed jumps);");
+        print("a trace shows only what was exercised. This is evidence for a");
+        print("human analysis, not a complete or guaranteed strategy extraction.");
+        print("Absence of evidence is not evidence of absence.");
+        print("");
+        print("College workflow: run the byte tool over a ROM you own +");
+        print("an emulator trace, read strat-*.evidence.md, then write YOUR");
+        print("analysis of the algorithm from the evidence -- do not copy code.");
+    }
+}

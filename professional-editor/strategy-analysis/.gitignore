@@ -1,0 +1,13 @@
+# Build outputs for the NES Strategy Analysis module
+*.o
+*.a
+c/nes-strat
+cpp/nes-strat-cpp
+java/build/
+
+# Tool-generated analysis outputs in samples/ (keep inputs, not outputs)
+samples/*.map.tsv
+samples/*.evidence.md
+# Never commit ROM/image data (synthetic sample ROM is the one exception, added explicitly)
+*.zip
+*.rom
