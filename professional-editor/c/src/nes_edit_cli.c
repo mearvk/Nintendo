@@ -3,9 +3,11 @@
  * Part of the mearvk/Nintendo Professional Editor.
  *
  * Usage:
- *   nes-edit info   <rom.nes>
- *   nes-edit dump   <rom.nes> <offset-hex> <len> [table.tbl]
- *   nes-edit apply  <in.nes> <script.edit> <out.nes>
+ *   nes-edit info    <rom.nes>
+ *   nes-edit dump    <rom.nes> <offset-hex> <len> [table.tbl]
+ *   nes-edit apply   <in.nes> <script.edit> <out.nes>
+ *   nes-edit recurve <rom.nes>
+ *   nes-edit refresh <in.nes> <out.nes>
  *
  * The edit script grammar (shared by all implementations):
  *   # comment
@@ -148,19 +150,61 @@ static int cmd_apply(const char *in, const char *script, const char *out) {
     return rc;
 }
 
+static int cmd_recurve(const char *path) {
+    nes_rom rom;
+    nes_status s = nes_rom_load(path, &rom);
+    if (s != NES_OK) { fprintf(stderr, "recurve: %s: %s\n", path, nes_strerror(s)); return 1; }
+    nes_report rep;
+    s = nes_recurve(&rom, &rep);
+    if (s != NES_OK) { fprintf(stderr, "recurve: %s\n", nes_strerror(s)); nes_rom_free(&rom); return 1; }
+
+    printf("recurve: integrity audit of %s\n", path);
+    for (size_t i = 0; i < rep.count; i++) {
+        const nes_finding *f = &rep.findings[i];
+        printf("  [%-5s] %-8s %s\n", nes_severity_str(f->severity), f->check, f->message);
+    }
+    printf("  fingerprint fnv1a64:%016llX\n",
+           (unsigned long long)nes_fingerprint(&rom));
+    printf("verdict: %s\n",
+           rep.worst == NES_SEV_OK   ? "HEALTHY"
+         : rep.worst == NES_SEV_WARN ? "HEALTHY (with warnings)"
+                                     : "DAMAGED");
+    nes_rom_free(&rom);
+    /* exit non-zero only when the image is actually malformed/damaged. */
+    return rep.worst == NES_SEV_ERROR ? 1 : 0;
+}
+
+static int cmd_refresh(const char *in, const char *out) {
+    nes_rom rom;
+    nes_status s = nes_rom_load(in, &rom);
+    if (s != NES_OK) { fprintf(stderr, "refresh: %s: %s\n", in, nes_strerror(s)); return 1; }
+    uint64_t fp = 0;
+    s = nes_refresh(&rom, out, &fp);
+    if (s != NES_OK) { fprintf(stderr, "refresh: %s\n", nes_strerror(s)); nes_rom_free(&rom); return 1; }
+    printf("refreshed %s -> %s (%zu bytes)\n", in, out, rom.size);
+    printf("  fingerprint fnv1a64:%016llX\n", (unsigned long long)fp);
+    printf("  provenance  %s.provenance\n", out);
+    nes_rom_free(&rom);
+    return 0;
+}
+
 int main(int argc, char **argv) {
     if (argc < 2) {
         fprintf(stderr,
             "nes-edit -- NES ROM text/menu editor\n"
             "usage:\n"
-            "  nes-edit info  <rom.nes>\n"
-            "  nes-edit dump  <rom.nes> <offset-hex> <len> [table.tbl]\n"
-            "  nes-edit apply <in.nes> <script.edit> <out.nes>\n");
+            "  nes-edit info    <rom.nes>\n"
+            "  nes-edit dump    <rom.nes> <offset-hex> <len> [table.tbl]\n"
+            "  nes-edit apply   <in.nes> <script.edit> <out.nes>\n"
+            "  nes-edit recurve <rom.nes>\n"
+            "  nes-edit refresh <in.nes> <out.nes>\n");
         return 2;
     }
     if (strcmp(argv[1], "info") == 0 && argc >= 3) return cmd_info(argv[2]);
     if (strcmp(argv[1], "dump") == 0) return cmd_dump(argc, argv);
     if (strcmp(argv[1], "apply") == 0 && argc >= 5) return cmd_apply(argv[2], argv[3], argv[4]);
+    if (strcmp(argv[1], "recurve") == 0 && argc >= 3) return cmd_recurve(argv[2]);
+    if (strcmp(argv[1], "refresh") == 0 && argc >= 4) return cmd_refresh(argv[2], argv[3]);
     fprintf(stderr, "nes-edit: unknown or incomplete command\n");
     return 2;
 }

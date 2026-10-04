@@ -2,11 +2,16 @@
  * nes_rom.c -- iNES ROM container + text/menu editing (C implementation).
  * Part of the mearvk/Nintendo Professional Editor. No copyrighted ROM content.
  */
+/* Request POSIX APIs (gmtime_r) while staying -std=c11 -Wpedantic clean. */
+#if !defined(_WIN32)
+#  define _POSIX_C_SOURCE 200809L
+#endif
 #include "nes_rom.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 /* ---- character table -------------------------------------------------- */
 
@@ -200,4 +205,186 @@ const char *nes_strerror(nes_status s) {
         case NES_ERR_ARG:     return "bad argument";
         default:              return "unknown error";
     }
+}
+
+/* ---- integrity audit (recurve) & provenance refresh (refresh) -------- */
+
+const char *nes_severity_str(int severity) {
+    switch (severity) {
+        case NES_SEV_OK:    return "ok";
+        case NES_SEV_WARN:  return "warn";
+        case NES_SEV_ERROR: return "error";
+        default:            return "?";
+    }
+}
+
+uint64_t nes_fingerprint(const nes_rom *rom) {
+    /* FNV-1a 64-bit over the whole image. Matches the C++/Java/SLeeLa tools. */
+    uint64_t h = 0xcbf29ce484222325ULL;        /* FNV offset basis */
+    if (!rom || !rom->data) return h;
+    for (size_t i = 0; i < rom->size; i++) {
+        h ^= (uint64_t)rom->data[i];
+        h *= 1099511628211ULL;                  /* FNV prime */
+    }
+    return h;
+}
+
+/* Append a finding, clamping to NES_MAX_FINDINGS and tracking the worst sev. */
+static void add_finding(nes_report *rep, int sev, const char *check,
+                        const char *msg) {
+    if (sev > rep->worst) rep->worst = sev;
+    if (rep->count >= NES_MAX_FINDINGS) return;
+    nes_finding *f = &rep->findings[rep->count++];
+    f->severity = sev;
+    snprintf(f->check, sizeof(f->check), "%s", check);
+    snprintf(f->message, sizeof(f->message), "%s", msg);
+}
+
+/* Classify a byte region: 0 = mixed, 1 = all 0x00 (blank), 2 = all 0xFF. */
+static int region_fill(const uint8_t *p, size_t n) {
+    if (n == 0) return 0;
+    uint8_t first = p[0];
+    if (first != 0x00 && first != 0xFF) return 0;
+    for (size_t i = 1; i < n; i++) if (p[i] != first) return 0;
+    return first == 0x00 ? 1 : 2;
+}
+
+nes_status nes_recurve(const nes_rom *rom, nes_report *rep) {
+    if (!rom || !rom->data || !rep) return NES_ERR_ARG;
+    memset(rep, 0, sizeof(*rep));
+    rep->worst = NES_SEV_OK;
+    char buf[160];
+
+    /* 1. Header / magic. (A loaded rom already has valid magic, but re-check.) */
+    if (memcmp(rom->data, "NES\x1A", 4) != 0)
+        add_finding(rep, NES_SEV_ERROR, "header", "iNES magic 'NES\\x1A' missing");
+    else
+        add_finding(rep, NES_SEV_OK, "header", "iNES magic present");
+
+    /* 2. Bank counts / mapper. */
+    if (rom->prg_banks == 0)
+        add_finding(rep, NES_SEV_ERROR, "prg", "PRG bank count is 0 (no program)");
+    else {
+        snprintf(buf, sizeof(buf), "%u PRG bank(s), %zu bytes; mapper %u",
+                 rom->prg_banks, rom->prg_size, rom->mapper);
+        add_finding(rep, NES_SEV_OK, "prg", buf);
+    }
+
+    /* 3. Size consistency: header + trainer + PRG + CHR vs. file length. */
+    {
+        size_t expect = NES_HEADER_SIZE
+                      + (rom->has_trainer ? NES_TRAINER_SIZE : 0u)
+                      + rom->prg_size + rom->chr_size;
+        if (expect > rom->size) {
+            snprintf(buf, sizeof(buf),
+                     "truncated: header declares %zu bytes but file is %zu",
+                     expect, rom->size);
+            add_finding(rep, NES_SEV_ERROR, "size", buf);
+        } else if (expect < rom->size) {
+            snprintf(buf, sizeof(buf),
+                     "%zu trailing byte(s) after declared regions",
+                     rom->size - expect);
+            add_finding(rep, NES_SEV_WARN, "size", buf);
+        } else {
+            add_finding(rep, NES_SEV_OK, "size", "file length matches header");
+        }
+    }
+
+    /* 4. Embedded images: audit each CHR (tile) bank. */
+    if (rom->chr_banks == 0) {
+        add_finding(rep, NES_SEV_WARN, "chr",
+                    "no CHR-ROM banks (CHR-RAM title or program-only image)");
+    } else {
+        for (unsigned b = 0; b < rom->chr_banks; b++) {
+            size_t off = rom->chr_offset + (size_t)b * NES_CHR_BANK_SIZE;
+            char check[16];
+            snprintf(check, sizeof(check), "chr#%u", b);
+            if (off + NES_CHR_BANK_SIZE > rom->size) {
+                snprintf(buf, sizeof(buf),
+                         "CHR bank %u extends past end of file (damaged)", b);
+                add_finding(rep, NES_SEV_ERROR, check, buf);
+                continue;
+            }
+            const uint8_t *p = rom->data + off;
+            int fill = region_fill(p, NES_CHR_BANK_SIZE);
+            /* checksum this bank (FNV-1a 64-bit, matching the other tools). */
+            uint64_t h = 0xcbf29ce484222325ULL;
+            for (size_t i = 0; i < NES_CHR_BANK_SIZE; i++) { h ^= p[i]; h *= 1099511628211ULL; }
+            if (fill == 1)
+                snprintf(buf, sizeof(buf),
+                         "CHR bank %u is entirely 0x00 (blank/no tiles)", b);
+            else if (fill == 2)
+                snprintf(buf, sizeof(buf),
+                         "CHR bank %u is entirely 0xFF (erased/undamaged check)", b);
+            else
+                snprintf(buf, sizeof(buf),
+                         "CHR bank %u intact, tiles present (fp %016llX)", b,
+                         (unsigned long long)h);
+            add_finding(rep, fill == 0 ? NES_SEV_OK : NES_SEV_WARN, check, buf);
+        }
+    }
+
+    /* 5. PRG tail observation (purely informational). */
+    if (rom->prg_size >= 16) {
+        const uint8_t *tail = rom->data + rom->prg_offset + rom->prg_size - 16;
+        int fill = region_fill(tail, 16);
+        if (fill == 2)
+            add_finding(rep, NES_SEV_OK, "prg-tail",
+                        "PRG tail is 0xFF fill (typical of unused space)");
+    }
+
+    return NES_OK;
+}
+
+/* ISO-8601 UTC timestamp into `out` (needs >= 21 bytes). */
+static void iso8601_utc(char *out, size_t n) {
+    time_t t = time(NULL);
+    struct tm g;
+#if defined(_WIN32)
+    gmtime_s(&g, &t);
+#else
+    gmtime_r(&t, &g);
+#endif
+    strftime(out, n, "%Y-%m-%dT%H:%M:%SZ", &g);
+}
+
+nes_status nes_refresh(const nes_rom *rom, const char *out_path, uint64_t *out_fp) {
+    if (!rom || !rom->data || !out_path) return NES_ERR_ARG;
+
+    /* Re-emit a clean, canonical copy of the owned ROM (byte-identical). */
+    nes_status s = nes_rom_save(rom, out_path);
+    if (s != NES_OK) return s;
+
+    uint64_t fp = nes_fingerprint(rom);
+    if (out_fp) *out_fp = fp;
+
+    /* Write the provenance sidecar: "<out_path>.provenance". No ROM bytes. */
+    char ts[32];
+    iso8601_utc(ts, sizeof(ts));
+
+    size_t plen = strlen(out_path) + sizeof(".provenance");
+    char *sidecar = (char *)malloc(plen);
+    if (!sidecar) return NES_ERR_IO;
+    snprintf(sidecar, plen, "%s.provenance", out_path);
+
+    FILE *f = fopen(sidecar, "wb");
+    free(sidecar);
+    if (!f) return NES_ERR_IO;
+    fprintf(f,
+        "# mearvk/Nintendo Professional Editor -- refresh provenance record\n"
+        "# This records WHEN a ROM you own was last re-emitted and its content\n"
+        "# fingerprint. It contains no copyrighted ROM data.\n"
+        "tool        = nes-edit (C)\n"
+        "action      = refresh\n"
+        "refreshed   = %s\n"
+        "image       = %s\n"
+        "size        = %zu\n"
+        "prg_banks   = %u\n"
+        "chr_banks   = %u\n"
+        "mapper      = %u\n"
+        "fingerprint = fnv1a64:%016llX\n",
+        ts, out_path, rom->size, rom->prg_banks, rom->chr_banks,
+        rom->mapper, (unsigned long long)fp);
+    fclose(f);
+    return NES_OK;
 }

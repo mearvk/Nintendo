@@ -3,7 +3,9 @@
 #include "NesRom.hpp"
 
 #include <cstring>
+#include <ctime>
 #include <fstream>
+#include <iomanip>
 #include <sstream>
 
 namespace mearvk::nintendo {
@@ -139,6 +141,152 @@ bool NesRom::expectText(std::size_t offset, std::size_t len, const std::string& 
     for (std::size_t i = expected.size(); i < len; ++i)
         if (got[i] != '.' && got[i] != ' ') return false;
     return true;
+}
+
+// ---- integrity audit (recurve) & provenance refresh (refresh) ----------
+
+const char* NesRom::severityStr(Severity s) {
+    switch (s) {
+        case Severity::Ok:    return "ok";
+        case Severity::Warn:  return "warn";
+        case Severity::Error: return "error";
+    }
+    return "?";
+}
+
+std::uint64_t NesRom::fingerprint() const {
+    std::uint64_t h = 0xcbf29ce484222325ULL;      // FNV-1a offset basis
+    for (std::uint8_t b : data_) { h ^= b; h *= 1099511628211ULL; }
+    return h;
+}
+
+namespace {
+// Classify a region: 0 = mixed, 1 = all 0x00, 2 = all 0xFF.
+int regionFill(const std::uint8_t* p, std::size_t n) {
+    if (n == 0) return 0;
+    std::uint8_t first = p[0];
+    if (first != 0x00 && first != 0xFF) return 0;
+    for (std::size_t i = 1; i < n; ++i) if (p[i] != first) return 0;
+    return first == 0x00 ? 1 : 2;
+}
+std::string hex64(std::uint64_t v) {
+    std::ostringstream os;
+    os << std::uppercase << std::hex << std::setw(16) << std::setfill('0') << v;
+    return os.str();
+}
+} // namespace
+
+NesRom::Report NesRom::recurve() const {
+    Report rep;
+    auto add = [&](Severity sev, std::string check, std::string msg) {
+        if (sev > rep.worst) rep.worst = sev;
+        rep.findings.push_back({sev, std::move(check), std::move(msg)});
+    };
+
+    // 1. Header / magic.
+    if (std::memcmp(data_.data(), "NES\x1A", 4) != 0)
+        add(Severity::Error, "header", "iNES magic 'NES\\x1A' missing");
+    else
+        add(Severity::Ok, "header", "iNES magic present");
+
+    // 2. Bank counts / mapper.
+    if (prgBanks_ == 0)
+        add(Severity::Error, "prg", "PRG bank count is 0 (no program)");
+    else {
+        std::ostringstream os;
+        os << int(prgBanks_) << " PRG bank(s), " << prgSize_
+           << " bytes; mapper " << mapper_;
+        add(Severity::Ok, "prg", os.str());
+    }
+
+    // 3. Size consistency.
+    std::size_t expect = kHeader + (hasTrainer_ ? kTrainer : 0) + prgSize_ + chrSize_;
+    if (expect > data_.size()) {
+        std::ostringstream os;
+        os << "truncated: header declares " << expect
+           << " bytes but file is " << data_.size();
+        add(Severity::Error, "size", os.str());
+    } else if (expect < data_.size()) {
+        std::ostringstream os;
+        os << (data_.size() - expect) << " trailing byte(s) after declared regions";
+        add(Severity::Warn, "size", os.str());
+    } else {
+        add(Severity::Ok, "size", "file length matches header");
+    }
+
+    // 4. Embedded images: audit each CHR (tile) bank.
+    if (chrBanks_ == 0) {
+        add(Severity::Warn, "chr",
+            "no CHR-ROM banks (CHR-RAM title or program-only image)");
+    } else {
+        for (unsigned b = 0; b < chrBanks_; ++b) {
+            std::size_t off = chrOffset_ + static_cast<std::size_t>(b) * kChrBank;
+            std::string name = "chr#" + std::to_string(b);
+            if (off + kChrBank > data_.size()) {
+                add(Severity::Error, name,
+                    "CHR bank " + std::to_string(b) + " extends past end of file (damaged)");
+                continue;
+            }
+            const std::uint8_t* p = data_.data() + off;
+            int fill = regionFill(p, kChrBank);
+            std::uint64_t h = 0xcbf29ce484222325ULL;
+            for (std::size_t i = 0; i < kChrBank; ++i) { h ^= p[i]; h *= 1099511628211ULL; }
+            if (fill == 1)
+                add(Severity::Warn, name,
+                    "CHR bank " + std::to_string(b) + " is entirely 0x00 (blank/no tiles)");
+            else if (fill == 2)
+                add(Severity::Warn, name,
+                    "CHR bank " + std::to_string(b) + " is entirely 0xFF (erased/undamaged check)");
+            else
+                add(Severity::Ok, name,
+                    "CHR bank " + std::to_string(b) + " intact, tiles present (fp " + hex64(h) + ")");
+        }
+    }
+
+    // 5. PRG tail observation.
+    if (prgSize_ >= 16) {
+        const std::uint8_t* tail = data_.data() + prgOffset_ + prgSize_ - 16;
+        if (regionFill(tail, 16) == 2)
+            add(Severity::Ok, "prg-tail", "PRG tail is 0xFF fill (typical of unused space)");
+    }
+
+    return rep;
+}
+
+std::uint64_t NesRom::refresh(const std::string& outPath) const {
+    // Re-emit a clean, canonical copy of the owned ROM (byte-identical).
+    save(outPath);
+
+    std::uint64_t fp = fingerprint();
+
+    // ISO-8601 UTC timestamp.
+    std::time_t t = std::time(nullptr);
+    std::tm g{};
+#if defined(_WIN32)
+    gmtime_s(&g, &t);
+#else
+    gmtime_r(&t, &g);
+#endif
+    char ts[32];
+    std::strftime(ts, sizeof(ts), "%Y-%m-%dT%H:%M:%SZ", &g);
+
+    // Provenance sidecar: "<outPath>.provenance". No ROM bytes.
+    std::ofstream out(outPath + ".provenance", std::ios::binary);
+    if (!out) throw NesError("cannot write provenance: " + outPath + ".provenance");
+    out << "# mearvk/Nintendo Professional Editor -- refresh provenance record\n"
+        << "# This records WHEN a ROM you own was last re-emitted and its content\n"
+        << "# fingerprint. It contains no copyrighted ROM data.\n"
+        << "tool        = nes-edit-cpp (C++)\n"
+        << "action      = refresh\n"
+        << "refreshed   = " << ts << "\n"
+        << "image       = " << outPath << "\n"
+        << "size        = " << data_.size() << "\n"
+        << "prg_banks   = " << int(prgBanks_) << "\n"
+        << "chr_banks   = " << int(chrBanks_) << "\n"
+        << "mapper      = " << mapper_ << "\n"
+        << "fingerprint = fnv1a64:" << hex64(fp) << "\n";
+    if (!out) throw NesError("write failed: " + outPath + ".provenance");
+    return fp;
 }
 
 } // namespace mearvk::nintendo

@@ -2,9 +2,11 @@
 // Part of the mearvk/Nintendo Professional Editor.
 //
 // Usage:
-//   nes-edit-cpp info  <rom.nes>
-//   nes-edit-cpp dump  <rom.nes> <offset-hex> <len> [table.tbl]
-//   nes-edit-cpp apply <in.nes> <script.edit> <out.nes>
+//   nes-edit-cpp info    <rom.nes>
+//   nes-edit-cpp dump    <rom.nes> <offset-hex> <len> [table.tbl]
+//   nes-edit-cpp apply   <in.nes> <script.edit> <out.nes>
+//   nes-edit-cpp recurve <rom.nes>
+//   nes-edit-cpp refresh <in.nes> <out.nes>
 //
 // Shares the edit-script grammar with the C / SLeeLa / Java implementations:
 //   table <path.tbl>
@@ -14,6 +16,7 @@
 #include "NesRom.hpp"
 
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -126,6 +129,38 @@ int cmdApply(const std::string& in, const std::string& script, const std::string
     return 0;
 }
 
+int cmdRecurve(const std::string& path) {
+    auto rom = NesRom::load(path);
+    auto rep = rom.recurve();
+    std::cout << "recurve: integrity audit of " << path << "\n";
+    for (const auto& f : rep.findings) {
+        std::ostringstream sev;
+        sev << std::left << std::setw(5) << NesRom::severityStr(f.severity);
+        std::cout << "  [" << sev.str() << "] " << std::left << std::setw(8)
+                  << f.check << " " << f.message << "\n";
+    }
+    std::ostringstream fp;
+    fp << std::uppercase << std::hex << std::setw(16) << std::setfill('0') << rom.fingerprint();
+    std::cout << "  fingerprint fnv1a64:" << fp.str() << "\n";
+    std::cout << "verdict: "
+              << (rep.worst == NesRom::Severity::Ok   ? "HEALTHY"
+                : rep.worst == NesRom::Severity::Warn ? "HEALTHY (with warnings)"
+                                                      : "DAMAGED")
+              << "\n";
+    return rep.worst == NesRom::Severity::Error ? 1 : 0;
+}
+
+int cmdRefresh(const std::string& in, const std::string& out) {
+    auto rom = NesRom::load(in);
+    std::uint64_t fp = rom.refresh(out);
+    std::ostringstream fph;
+    fph << std::uppercase << std::hex << std::setw(16) << std::setfill('0') << fp;
+    std::cout << "refreshed " << in << " -> " << out << " (" << rom.size() << " bytes)\n"
+              << "  fingerprint fnv1a64:" << fph.str() << "\n"
+              << "  provenance  " << out << ".provenance\n";
+    return 0;
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -133,15 +168,19 @@ int main(int argc, char** argv) {
     if (a.size() < 2) {
         std::cerr << "nes-edit-cpp -- NES ROM text/menu editor\n"
                      "usage:\n"
-                     "  nes-edit-cpp info  <rom.nes>\n"
-                     "  nes-edit-cpp dump  <rom.nes> <offset-hex> <len> [table.tbl]\n"
-                     "  nes-edit-cpp apply <in.nes> <script.edit> <out.nes>\n";
+                     "  nes-edit-cpp info    <rom.nes>\n"
+                     "  nes-edit-cpp dump    <rom.nes> <offset-hex> <len> [table.tbl]\n"
+                     "  nes-edit-cpp apply   <in.nes> <script.edit> <out.nes>\n"
+                     "  nes-edit-cpp recurve <rom.nes>\n"
+                     "  nes-edit-cpp refresh <in.nes> <out.nes>\n";
         return 2;
     }
     try {
         if (a[1] == "info" && a.size() >= 3) return cmdInfo(a[2]);
         if (a[1] == "dump") return cmdDump(a);
         if (a[1] == "apply" && a.size() >= 5) return cmdApply(a[2], a[3], a[4]);
+        if (a[1] == "recurve" && a.size() >= 3) return cmdRecurve(a[2]);
+        if (a[1] == "refresh" && a.size() >= 4) return cmdRefresh(a[2], a[3]);
     } catch (const NesError& e) {
         std::cerr << "error: " << e.what() << "\n";
         return 1;
