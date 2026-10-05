@@ -1,0 +1,6 @@
+# demo.manifest — minimal project for the build driver.
+# All inputs are our own original source.
+out      = demo.nes
+prg_src  = demo/demo.s
+mapper   = 0
+org      = C000

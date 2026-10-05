@@ -35,3 +35,21 @@ tools/exec-harness/exec6502
 tools/examples/*.bin
 tools/examples/*.chr
 tools/examples/*.snd
+
+# new tool binaries:
+tools/rom-linker/rom_link
+tools/nametable-builder/nt_build
+tools/palette-tool/pal_build
+
+# build driver + its outputs:
+build/build_driver
+build/*.nes
+build/*.prg
+build/*.chr
+build/*.snd
+build/*.part*.bin
+build/demo/*.nes
+build/demo/*.bin
+
+# runtime assembly outputs:
+runtime/**/*.bin

@@ -29,8 +29,28 @@ static uint8_t  A, Xr, Yr, SP, P;
 /* P flags: N V - B D I Z C */
 enum { C=0x01, Z=0x02, I=0x04, D=0x08, B=0x10, U=0x20, V=0x40, N=0x80 };
 
-static uint8_t  rd(uint16_t a) { return mem[a]; }
-static void     wr(uint16_t a, uint8_t v) { mem[a] = v; }
+/* Minimal register models so runtime boot code can be validated.
+ * We do NOT emulate real timing; we model just enough that the common
+ * "poll PPUSTATUS vblank bit" warm-up pattern makes forward progress:
+ *   $2002 (PPUSTATUS): bit 7 toggles toward "set" on repeated reads, so a
+ *   BPL wait loop terminates deterministically instead of spinning forever.
+ *   $4016 (controller): returns 0 (no buttons) each read.
+ * These are validation stubs, not an emulator. */
+static int ppustatus_reads = 0;
+
+static uint8_t rd(uint16_t a) {
+    if (a == 0x2002) {
+        /* set the vblank bit after a couple of polls, then it stays set */
+        return (uint8_t)((++ppustatus_reads >= 2) ? 0x80 : 0x00);
+    }
+    if (a == 0x4016 || a == 0x4017) return 0x00;
+    return mem[a];
+}
+static void wr(uint16_t a, uint8_t v) {
+    /* writes to registers are accepted and dropped (OAMDMA etc. are no-ops) */
+    if (a >= 0x2000 && a <= 0x401F) { mem[a] = v; return; }
+    mem[a] = v;
+}
 static uint8_t  fetch(void) { return rd(PC++); }
 static uint16_t fetch16(void){ uint16_t lo=fetch(); uint16_t hi=fetch(); return (uint16_t)(lo|(hi<<8)); }
 
