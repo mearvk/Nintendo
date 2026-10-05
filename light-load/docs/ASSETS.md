@@ -1,57 +1,67 @@
-# Assets — original content creation for a new NES edition
+# Assets — creating original content with our own code
 
-The publicly known tools and conventions for authoring the **original** code,
-graphics, and audio that make up a new "premium edition." Everything here is
-about creating your own content — the point of a new edition is that you own
-every byte.
+How we author the **original** code, graphics, and audio for a new edition —
+using **only our own tooling** built against the format. No third-party
+compilers, editors, trackers, or engines. The point of a new edition is that we
+own every byte, including the tools that make it.
 
-## Toolchains (code)
+> No external dependencies. Everything here is produced by code we write in
+> this repo (C / C++ / Java) operating directly on the NES 2.0 format described
+> in `FORMATS.md`.
 
-| Tool | Era | What it is | Use |
-|---|---|---|---|
-| **cc65 / ca65** | long-standing | C compiler + 6502 assembler suite | The standard way to write NES code in C and/or assembly. |
-| **NESFab** | modern | A language + compiler built for the NES | Efficient NES code with higher-level ergonomics. |
-| **NESmaker** | modern | GUI game-building toolkit | Build complete games on modern mappers without hand-writing assembly. |
-| **asm6 / nesasm** | classic | Lightweight 6502 assemblers | Minimal, dependency-free assembly builds. |
+## Code
 
-**Rule:** keep **source + assets** in version control; the ROM is a **build
-output**, never a committed artifact. (Same discipline `light-load` enforces for
-ROM bytes.)
+We write the game's 6502 program ourselves. Two paths, both ours:
+
+- **Hand-authored machine code / assembly** — emit 6502 opcodes directly into
+  the PRG region. Our generators already write exact bytes at exact offsets;
+  the same approach places code, not just zeros.
+- **Our own assembler/codegen** — if we want symbolic assembly, we write the
+  assembler. It is a text-to-bytes pass over our own mnemonic table; the
+  canvas/region model in `nts/` already gives us the layout to target.
+
+**Rule:** source + byte tables live in version control; the ROM is a build
+output of **our** code, never a committed artifact and never produced by an
+outside tool.
 
 ## Graphics (CHR)
 
-| Tool | What it does |
-|---|---|
-| **YY-CHR** | Classic tile/CHR editor. |
-| **NEXXT / NESST** | Modern NES-specific tile, nametable, and palette editors. |
-| **Aseprite** (+ export) | General pixel-art tool; export to NES-constrained palettes/tiles. |
+CHR tiles are a fixed, well-documented bit layout (two bit-planes per 8×8
+tile). We generate them ourselves:
+
+- Define tiles as data in our source (per-pixel palette indices) and have our
+  own encoder pack them into the CHR bit-plane format.
+- Author or convert our own pixel data with code we write — a small routine
+  that reads our image representation and emits CHR bytes.
 
 **Rules**
-- Author original tiles/sprites only — original characters, not reproductions.
-- Respect the hardware palette and the 8×8 / 8×16 sprite constraints.
-- CHR-ROM = fixed tiles; CHR-RAM = tiles streamed at runtime (your mapper choice
-  decides which).
+- Original tiles/sprites only — original characters, authored by us.
+- Respect the hardware palette and 8×8 / 8×16 sprite constraints in our encoder.
+- CHR-ROM = fixed tiles; CHR-RAM = tiles our code streams at runtime (mapper
+  choice decides which).
 
 ## Audio
 
-| Tool | What it does |
-|---|---|
-| **FamiStudio** | Modern NES music tracker; exports data your engine plays back. |
-| **FamiTracker** | Classic NES tracker. |
-| **FamiTone2 / FamiStudio sound engine** | Playback engines you link into your ROM. |
+Sound is register writes to the APU on a timer. We own the whole chain:
+
+- Represent music/SFX as our own data format (note/duration/channel tables).
+- Write our own playback engine (the code that pushes APU register writes each
+  frame) and link it into our PRG.
 
 **Rules**
-- Compose original music/SFX.
-- Expansion audio (VRC6, MMC5, FDS, Namco 163) is available only if your mapper
-  and target support it — declare and test accordingly.
+- Original compositions and our own engine — no external trackers or sound
+  libraries.
+- Expansion audio (where a mapper provides it) is driven by our own code if we
+  choose to use it.
 
-## Metadata & "premium" packaging assets
+## Metadata & "premium" packaging
 
-A premium *edition* is a bundle, all original IP you create:
-- Box art, manual, and label art (your own artwork).
-- Optional **Mesen HD Pack** (high-resolution art overlay) — see `VALIDATION.md`
-  and `EDITIONS.md`.
-- A written changelog / edition notes.
+A premium *edition* is a bundle, all original IP we create ourselves:
 
-**Rule:** every asset in the bundle is your own authorship, licensable as you
-choose.
+- Box/label/manual artwork we author.
+- An optional runtime presentation layer written by us (see `VALIDATION.md` /
+  `EDITIONS.md`).
+- Edition notes / changelog.
+
+**Rule:** every asset — and every tool that made it — is our own authorship,
+licensable as we choose.

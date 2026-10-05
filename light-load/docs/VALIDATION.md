@@ -1,11 +1,14 @@
-# Validation — the verification series for a new NES edition
+# Validation — the verification series using our own code
 
-How to verify a new edition is structurally sound and runnable before you ship.
-The structural checks here are exactly what this repo's tooling automates.
+How we verify a new edition is structurally sound before shipping — using
+**only our own tools**. No third-party emulators, debuggers, or validators.
 
-## Stage 1 — structural validation (automated by NTS)
+> No external dependencies. Every check here runs through code we wrote in this
+> repo (`nts/`, in C / C++ / Java).
 
-Run the structural reader on your built ROM:
+## Stage 1 — structural validation (our NTS tools)
+
+Run our structural reader on the built ROM:
 
 ```sh
 nts-analyze your-edition.nes            # merit / strategy / components + conditions
@@ -24,38 +27,40 @@ nts-analyze your-edition.nes --declare    # declared PRG/CHR capacity
 | **chemistry** | ✅ | CHR source agrees with bank count |
 
 **Rule:** an edition is not "done" until `play`, `chemistry`, and a clean
-`guarantee` hold. The C, C++, and Java tools in `nts/` all produce the same
-verdict — cross-check across implementations if in doubt.
+`guarantee` hold. Our C, C++, and Java tools produce the same verdict —
+cross-check across our own implementations as an independent confirmation.
 
-## Stage 2 — emulator validation (accuracy & behaviour)
+## Stage 2 — behavioural validation (our own harness)
 
-| Emulator | Era | Strength |
-|---|---|---|
-| **Mesen** | modern | Best debugger, cycle-accurate, HD-pack support. Primary dev target. |
-| **FCEUX** | long-standing | Lua scripting, debugging, TAS tooling. |
-| **Nestopia / puNES** | accuracy refs | Cross-check behaviour against accurate cores. |
+Rather than depend on an outside emulator, we verify behaviour with code we
+control:
 
-**Rules**
-- Boot on **at least two** accuracy-focused emulators; divergence usually means
-  you are relying on undefined behaviour.
-- Use Mesen's debugger to confirm bank-switching, IRQ timing, and PPU writes do
-  what you intend.
+- **Our own execution harness** — a small 6502 interpreter/stepper we write
+  that loads the PRG through the mapper model and lets us assert on CPU/PPU/APU
+  state after N cycles. (The region model in `nts/` already provides the bank
+  layout to drive it.)
+- **Deterministic assertions** — golden state checks: after a fixed input
+  sequence, specific memory/registers must equal known values we authored.
 
-## Stage 3 — hardware validation (optional, for carts)
+**Rule:** behaviour is validated against **our** expected-state fixtures, not an
+external reference core.
 
-- Flash to a compatible board (e.g. **UNROM-512** flash cart) and test on real
-  hardware.
-- Verify save/battery behaviour physically if you declared WRAM.
+## Stage 3 — hardware validation (optional)
+
+- If we target physical carts, we verify the image against the board's own
+  programming spec using our own flashing/verify routine.
+- Confirm save/battery behaviour against our own WRAM declaration.
 
 ## Stage 4 — regression & packaging checks
 
 - Re-run `nts-analyze --tsv` and diff the condition rows against the previous
   build (one row per condition — a stable regression signal).
-- Confirm no ROM bytes are committed to the repo (source + assets only; the ROM
-  is a build output).
-- If shipping an HD pack or patch, validate those artifacts separately.
+- Confirm no ROM bytes are committed (source + data only; the ROM is a build
+  output of our code).
+- Validate any packaging artifacts (presentation layer, patch) with our own
+  checkers.
 
 ## The verification series, in one line
 
-**build → `nts-analyze` (structure) → Mesen/FCEUX (behaviour) → optional
-hardware → `--tsv` regression diff → package.**
+**build → `nts-analyze` (structure) → our own execution harness (behaviour) →
+optional hardware → `--tsv` regression diff → package.**

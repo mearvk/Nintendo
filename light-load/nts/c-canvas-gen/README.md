@@ -51,9 +51,9 @@ request. So 200 MB rounds up to `2^25 * 7 = 224 MiB` (low byte `0x67`), and
 
 > A multi-hundred-MB canvas is a **format-capacity demonstration**, not a
 > runnable ROM. The NES 2.0 *header* can declare sizes into the gigabyte range
-> on paper, but real mappers, flash carts, and emulators cap out far lower
-> (practical homebrew is low-single-digit MB). Nothing here will boot on
-> hardware or in an emulator at these sizes — the point is to show the format's
+> on paper, but real mapper hardware and flashable boards cap out far lower
+> (practical homebrew is low-single-digit MB). Nothing here will boot on real
+> mapper hardware at these sizes — the point is to show the format's
 > theoretical envelope and to hand you a blank, ownable canvas.
 
 ## Files committed vs. ignored

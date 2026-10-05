@@ -52,13 +52,16 @@ This is what lets a header declare very large PRG/CHR. Our `nts-canvas` uses it;
 |---|---|---|---|
 | **NROM** | 0 | 1983 | Tiny games, no bank switching. Learning only. |
 | **MMC1** | 1 | 1987 | Classic 128–256 KB; battery saves. |
-| **MMC3** | 4 | 1988 | Workhorse: scanline IRQ (split status bars), great emulator support. |
+| **MMC3** | 4 | 1988 | Workhorse: scanline IRQ for split status bars; a common target. |
 | **MMC5** | 5 | 1988 | Most capable Nintendo mapper: extra RAM, fine banking, extra audio. |
-| **UNROM-512** | 30 | 2012 | **The homebrew "premium" board:** 512 KB, self-flashing, runs on emulators *and* real flash carts. |
+| **Mapper 30** | 30 | 2012 | A 512 KB self-flashing board spec; a large, "premium"-scale target. |
+
+These are **hardware facts we build *to*** — target specifications, not tools we
+depend on. Our own code declares and drives the chosen mapper.
 
 **Rules of thumb**
 - Match the mapper to the ambition; do not over-declare.
-- A shippable edition stays in the KB–low-MB range (what hardware/emulators run).
+- A shippable edition stays in the KB–low-MB range (what the target runs).
 - The 200 MB+ canvas this repo can emit is a **format-capacity** demonstration,
   not a runnable ROM.
 

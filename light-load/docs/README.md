@@ -8,8 +8,8 @@ pipeline.
 | Document | Covers |
 |---|---|
 | [`FORMATS.md`](FORMATS.md) | Container (iNES vs. NES 2.0), the 16-byte header, exponent sizes, mappers (MMC1/3/5, UNROM-512), mirroring, patch formats. |
-| [`ASSETS.md`](ASSETS.md) | Toolchains (cc65, NESFab, NESmaker), graphics (YY-CHR, NEXXT), audio (FamiStudio), packaging assets. |
-| [`VALIDATION.md`](VALIDATION.md) | The verification series: `nts-analyze` structural checks → emulators (Mesen, FCEUX) → hardware → regression. |
+| [`ASSETS.md`](ASSETS.md) | Creating original code, graphics (CHR), and audio with our own tooling — no third-party editors or engines. |
+| [`VALIDATION.md`](VALIDATION.md) | The verification series: `nts-analyze` structural checks → our own execution harness → hardware → regression. |
 | [`EDITIONS.md`](EDITIONS.md) | The end-to-end checklist that ties the above together, plus the one hard rule. |
 
 ## The one hard rule

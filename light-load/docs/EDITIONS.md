@@ -1,54 +1,54 @@
 # Editions — the rules for deriving a new premium NES edition
 
-A single checklist that ties together `FORMATS.md`, `ASSETS.md`, and
+A single checklist tying together `FORMATS.md`, `ASSETS.md`, and
 `VALIDATION.md`. Follow it top to bottom to produce a new, original "premium
-edition" game or cartridge, using only publicly documented tools and formats.
+edition" game or cartridge **using only our own code** against the public NES
+2.0 format. No third-party tools.
 
 ## The one hard rule
 
-A "new edition" means **new, original authorship** — your code, your art, your
-music — possibly built on the same *formats and mappers* the classics used, but
-**not derived from a copyrighted game's content**. Formats, mapper numbers, and
-header fields are facts you may freely use; another studio's PRG/CHR data is
-not. (See `../LEGALITY.md`: this is the line *Atari v. Nintendo* and *Galoob v.
-Nintendo* draw.)
+A "new edition" means **new, original authorship** — our code, our art, our
+music, and our tools — built on the public *format and mapper facts* the
+classics used, but **not derived from a copyrighted game's content**. Formats,
+mapper numbers, and header fields are facts we may freely target; another
+studio's PRG/CHR data is not. (See `../LEGALITY.md`.)
 
 ## The pipeline / checklist
 
 ### 1. Format & mapper (see FORMATS.md)
-- [ ] Target **NES 2.0** header.
-- [ ] Pick a mapper matching ambition: **UNROM-512 (30)** for publishable
-      homebrew, **MMC3 (4)** for IRQ split screens, **MMC5 (5)** for maximum
-      capability.
-- [ ] Declare only what hardware/emulators actually run (KB–low-MB).
+- [ ] Target the **NES 2.0** header.
+- [ ] Choose a mapper target matching ambition (e.g. mapper 1 / 4 / 5 / 30);
+      these are hardware facts we build *to*, not tools we depend on.
+- [ ] Declare only what the target hardware actually runs (KB–low-MB).
 
-### 2. Toolchain & assets (see ASSETS.md)
-- [ ] Code in **cc65/ca65**, **NESFab**, or **NESmaker**.
-- [ ] Original CHR via **YY-CHR / NEXXT / NESST**.
-- [ ] Original audio via **FamiStudio** (+ sound engine).
-- [ ] Keep source + assets in VCS; ROM is a build output, never committed.
+### 2. Our own tooling & assets (see ASSETS.md)
+- [ ] Write the 6502 program ourselves (direct byte emission or our own
+      assembler).
+- [ ] Generate original CHR tiles with our own encoder.
+- [ ] Author original audio data and our own playback engine.
+- [ ] Keep source + data in VCS; the ROM is a build output of our code.
 
 ### 3. Build
-- [ ] Produce the ROM from source.
-- [ ] Generate a header/capacity baseline with `nts-canvas` if designing the
-      memory map first.
+- [ ] Produce the ROM from our source.
+- [ ] Lay out the memory map / header with `nts-canvas` when designing the
+      footprint first.
 
 ### 4. Validate (see VALIDATION.md)
 - [ ] `nts-analyze` → `play`, `chemistry`, clean `guarantee` all pass.
-- [ ] Boots on **Mesen** + one other accurate emulator.
-- [ ] (Optional) runs on a real **UNROM-512** flash cart.
+- [ ] Behaviour verified with **our own execution harness** against our
+      expected-state fixtures.
+- [ ] (Optional) runs on target hardware via our own flash/verify routine.
 - [ ] `--tsv` regression diff vs. previous build.
 
 ### 5. Package the premium bundle
-- [ ] Original box/label/manual art.
-- [ ] Optional **Mesen HD Pack** (runtime overlay — *Galoob*-style enhancement,
-      original assets only).
+- [ ] Original box/label/manual art we created.
+- [ ] Optional runtime presentation layer written by us.
 - [ ] Edition notes / changelog.
-- [ ] License the bundle as you choose — it is wholly your IP.
+- [ ] License the bundle as we choose — it is wholly our IP, tools included.
 
 ## What each repo tool contributes
 
-| Tool (C / C++ / Java) | Role in the pipeline |
+| Our tool (C / C++ / Java) | Role in the pipeline |
 |---|---|
 | `nts-analyze` (reader + discriminator) | Stage 4 structural validation. |
 | `nts-canvas` (generator) | Stage 3 memory-map/header baseline. |
@@ -59,12 +59,10 @@ Nintendo* draw.)
 The same domain — NES 2.0 structure, the three axes, the five conditions, the
 canvas generator — is modeled three ways on purpose, as a comparative
 object-oriented-design study:
-- **C** — procedural, explicit memory, the closest to the hardware.
+- **C** — procedural, explicit memory, closest to the hardware.
 - **C++** — value types + namespaces, a thin typed layer over the C core.
-- **Java** — classes, enums, and interfaces; the clearest OOD expression and an
-  easy fit for JVM build pipelines and tooling.
+- **Java** — classes, enums, and records; the clearest OOD expression and an
+  easy fit for JVM build pipelines.
 
-Studying one well-specified format across three paradigms is a practical way to
-learn where OOD helps (modeling, extensibility) and where it costs
-(indirection, allocation) — useful background for anyone building commercial
-tooling in this space.
+All three are **our** code with no external dependencies — compile with a C/C++
+compiler and the JDK, nothing else.

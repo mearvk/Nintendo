@@ -65,7 +65,7 @@ cd nts && make
 - **NES 2.0 large-memory decoding.** PRG/CHR sizes decode exponent notation
   (`2^E·(M·2+1)`) up to the multi-megabyte range, plus PRG-RAM/CHR-RAM shift
   fields. Sizes are 64-bit throughout, so the same conditions apply to expanded
-  images that newer emulators can run.
+  images at larger declared capacities.
 
 ## Canvas generator (`nts-canvas`)
 
@@ -80,7 +80,7 @@ Emits a **new, empty** NES 2.0 image of a chosen footprint — the legitimate
 ```
 
 > A multi-hundred-MB canvas is a **format-capacity** artifact, not a runnable
-> ROM: real mappers/emulators cap out far lower. It demonstrates the format's
+> ROM: real mapper hardware caps out far lower. It demonstrates the format's
 > envelope and gives you a blank, ownable file.
 
 ## Output trees
