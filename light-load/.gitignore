@@ -53,3 +53,13 @@ build/demo/*.bin
 
 # runtime assembly outputs:
 runtime/**/*.bin
+
+# lifecycle tool binaries:
+tools/disasm/disasm6502
+tools/rom-splitter/rom_split
+tools/reorganize/reorganize
+tools/finalize/finalize
+# finalize probe outputs and release manifests:
+*.fin.hdr
+*.fin.prg
+*.fin.chr
