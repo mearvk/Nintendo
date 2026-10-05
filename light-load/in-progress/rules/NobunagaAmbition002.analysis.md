@@ -9,6 +9,7 @@
 | chr_banks | 16 | 128 KiB of character ROM |
 | file_size | 384 KiB | actual bytes on disk |
 | computed_size | 384 KiB | header + trainer + prg + chr |
+| trailer | 128 B | bytes past the last declared region |
 | header_fingerprint | 0x4E35B637 | FNV-style accumulator over the 16-byte header |
 
 ## strategy
@@ -34,8 +35,8 @@
 | condition | satisfied | rationale |
 |---|---|---|
 | play | yes | valid header, PRG present, regions fit within the image |
-| guarantee | no | file size differs from the computed region layout |
+| guarantee | yes | layout intact; 128-byte trailer present but not truncated |
 | chapters | yes | 16 PRG banks: content is partitioned into addressable chapters |
-| win | no | not a terminal configuration (needs mapper + battery + exact size) |
+| win | yes | mapped, battery-backed, and size-consistent: a completable configuration |
 | chemistry | yes | CHR source and bank count are mutually consistent |
 

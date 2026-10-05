@@ -13,11 +13,16 @@ namespace {
 
 std::string u(uint32_t v) { return std::to_string(v); }
 
-std::string kib(uint32_t bytes) {
+std::string kib(uint64_t bytes) {
     std::ostringstream os;
-    os << (bytes / 1024u) << " KiB";
+    if (bytes >= (1024ull * 1024ull))
+        os << (bytes / (1024ull * 1024ull)) << " MiB";
+    else
+        os << (bytes / 1024ull) << " KiB";
     return os.str();
 }
+
+std::string u64(uint64_t v) { return std::to_string(v); }
 
 std::string hex32(uint32_t v) {
     std::ostringstream os;
@@ -42,10 +47,24 @@ Axis build_merit(const nts_rom& rom) {
     ax.metrics.push_back({ "chr_banks", u(rom.chr_banks),
         rom.uses_chr_ram ? "CHR-RAM (no CHR-ROM banks)"
                          : kib(rom.chr_bytes) + " of character ROM" });
+    if (rom.format == NTS_FMT_NES20) {
+        if (rom.exponent_prg)
+            ax.metrics.push_back({ "prg_size_notation", "exponent",
+                "PRG size encoded in NES 2.0 exponent form (large-memory)" });
+        if (rom.exponent_chr)
+            ax.metrics.push_back({ "chr_size_notation", "exponent",
+                "CHR size encoded in NES 2.0 exponent form (large-memory)" });
+        ax.metrics.push_back({ "prg_ram", kib(rom.prg_ram_bytes),
+            "NES 2.0 PRG-RAM (work + save)" });
+        ax.metrics.push_back({ "chr_ram", kib(rom.chr_ram_bytes),
+            "NES 2.0 CHR-RAM" });
+    }
     ax.metrics.push_back({ "file_size", kib(rom.file_size),
         "actual bytes on disk" });
     ax.metrics.push_back({ "computed_size", kib(rom.computed_size),
         "header + trainer + prg + chr" });
+    ax.metrics.push_back({ "trailer", u64((uint64_t)rom.trailer_bytes) + " B",
+        rom.trailer_bytes ? "bytes past the last declared region" : "none" });
     ax.metrics.push_back({ "header_fingerprint",
         hex32(nts_region_sum(rom.raw_header, 0, NTS_INES_HEADER_SIZE)),
         "FNV-style accumulator over the 16-byte header" });
@@ -93,19 +112,24 @@ Axis build_components(const nts_rom& rom) {
 std::vector<Condition> evaluate_conditions(const nts_rom& rom) {
     std::vector<Condition> out;
 
-    // play: valid header + PRG present + all regions fit the file.
-    bool fits = (rom.file_size == 0) || (rom.computed_size <= rom.file_size);
+    // play: valid header + PRG present + not truncated.
+    bool fits = !rom.truncated;
     bool play = (rom.prg_banks > 0) && fits;
     out.push_back(mk("play", play,
         play ? "valid header, PRG present, regions fit within the image"
-             : "missing PRG or regions overflow the file"));
+             : "missing PRG or declared regions overflow the file (truncated)"));
 
-    // guarantee: exact size integrity, no slack and no truncation.
-    bool guarantee = (rom.file_size != 0) &&
-                     (rom.computed_size == rom.file_size);
+    // guarantee: integrity holds. A benign trailer (file larger than the
+    // declared layout) no longer counts as a violation; only truncation or a
+    // completely sizeless file does. The trailer size is reported separately.
+    bool guarantee = (rom.file_size != 0) && !rom.truncated;
     out.push_back(mk("guarantee", guarantee,
-        guarantee ? "computed layout equals file size exactly (no slack, no truncation)"
-                  : "file size differs from the computed region layout"));
+        guarantee
+            ? (rom.trailer_bytes
+                ? ("layout intact; " + std::to_string(rom.trailer_bytes) +
+                   "-byte trailer present but not truncated")
+                : std::string("computed layout equals file size exactly"))
+            : "declared regions exceed the file (truncated / corrupt)"));
 
     // chapters: content delivered across multiple switchable PRG banks.
     bool chapters = rom.prg_banks > 1;
@@ -195,6 +219,42 @@ std::string to_tsv(const Analysis& a) {
            << a.rom.prg_banks << '\t'
            << a.rom.chr_banks << '\n';
     }
+    return os.str();
+}
+
+// ---- the "ruth" diagram ---------------------------------------------------
+// A single enclosure holding exactly the five discriminator cells. Each cell
+// shows the condition name and a verdict glyph ([x] satisfied, [ ] not).
+std::string to_ruth_diagram(const Analysis& a) {
+    // Fixed-width cell: "[x] name" padded to exactly 20 columns.
+    auto cell = [&](const std::string& name) -> std::string {
+        std::string g = "[?]";
+        for (const Condition& c : a.conditions)
+            if (c.name == name) { g = c.satisfied ? "[x]" : "[ ]"; break; }
+        std::string s = g + " " + name;
+        while (s.size() < 20) s += ' ';
+        return s;
+    };
+    auto center = [](std::string s, size_t width) -> std::string {
+        if (s.size() >= width) return s.substr(0, width);
+        size_t pad = width - s.size();
+        return std::string(pad / 2, ' ') + s + std::string(pad - pad / 2, ' ');
+    };
+
+    const size_t W = 48; // inner width
+    std::ostringstream os;
+    os << "+" << std::string(W, '-') << "+\n";
+    os << "|" << center("r u t h", W) << "|\n";
+    os << "|" << center(a.source, W) << "|\n";
+    os << "+" << std::string(W, '-') << "+\n";
+    // Two 20-wide cells + 2 leading + 2 trailing = 44; pad 4 between -> 48.
+    os << "| " << cell("play")     << "    " << cell("guarantee") << " |\n";
+    os << "|" << std::string(W, ' ') << "|\n";
+    os << "| " << cell("chapters") << "    " << cell("win")       << " |\n";
+    os << "|" << std::string(W, ' ') << "|\n";
+    os << "|" << center(cell("chemistry"), W) << "|\n";
+    os << "+" << std::string(W, '-') << "+\n";
+    os << "  legend: [x] satisfied   [ ] not satisfied\n";
     return os.str();
 }
 

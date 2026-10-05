@@ -31,7 +31,7 @@
 #define NTS_DISCRIMINATOR_HPP
 
 extern "C" {
-#include "../c/ines.h"
+#include "../c-ines-reader/ines.h"
 }
 
 #include <string>
@@ -84,6 +84,12 @@ std::vector<Condition> evaluate_conditions(const nts_rom& rom);
 // Render helpers.
 std::string to_markdown(const Analysis& a);   // human report
 std::string to_tsv(const Analysis& a);         // machine-ingestible line(s)
+
+// The "ruth" diagram: encloses the five conditions
+// (play / guarantee / chapters / win / chemistry) in a single labelled box,
+// each shown with its satisfied-state glyph. "ruth" is the chosen name for
+// this five-cell enclosure of the discriminator's verdict.
+std::string to_ruth_diagram(const Analysis& a);
 
 } // namespace nts
 

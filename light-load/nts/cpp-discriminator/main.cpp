@@ -12,17 +12,19 @@
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        std::cerr << "usage: nts-analyze <file.nes> [--tsv]\n";
+        std::cerr << "usage: nts-analyze <file.nes> [--tsv | --ruth]\n";
         return 2;
     }
     std::string path = argv[1];
-    bool tsv = (argc >= 3 && std::string(argv[2]) == "--tsv");
+    std::string mode = (argc >= 3) ? argv[2] : "";
 
     nts::Analysis a = nts::analyze_file(path);
     if (!a.valid) {
         std::cerr << "error: " << a.error << " (" << path << ")\n";
         return 1;
     }
-    std::cout << (tsv ? nts::to_tsv(a) : nts::to_markdown(a));
+    if (mode == "--tsv")       std::cout << nts::to_tsv(a);
+    else if (mode == "--ruth") std::cout << nts::to_ruth_diagram(a);
+    else                       std::cout << nts::to_markdown(a);
     return 0;
 }

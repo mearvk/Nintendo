@@ -14,6 +14,6 @@
 
 # NTS build artifacts (compiled from nts/ sources):
 nts/*.o
-nts/c/*.o
-nts/cpp/*.o
+nts/c-ines-reader/*.o
+nts/cpp-discriminator/*.o
 nts/nts-analyze

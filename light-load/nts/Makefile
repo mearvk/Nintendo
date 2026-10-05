@@ -6,20 +6,22 @@ CFLAGS  ?= -std=c11   -O2 -Wall -Wextra -Wpedantic
 CXXFLAGS?= -std=c++17 -O2 -Wall -Wextra -Wpedantic
 BIN      = nts-analyze
 
-OBJS = c/ines.o cpp/conditions.o cpp/main.o
+C_DIR   = c-ines-reader
+CPP_DIR = cpp-discriminator
+OBJS = $(C_DIR)/ines.o $(CPP_DIR)/conditions.o $(CPP_DIR)/main.o
 
 all: $(BIN)
 
 $(BIN): $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS)
 
-c/ines.o: c/ines.c c/ines.h
+$(C_DIR)/ines.o: $(C_DIR)/ines.c $(C_DIR)/ines.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-cpp/conditions.o: cpp/conditions.cpp cpp/discriminator.hpp c/ines.h
+$(CPP_DIR)/conditions.o: $(CPP_DIR)/conditions.cpp $(CPP_DIR)/discriminator.hpp $(C_DIR)/ines.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-cpp/main.o: cpp/main.cpp cpp/discriminator.hpp c/ines.h
+$(CPP_DIR)/main.o: $(CPP_DIR)/main.cpp $(CPP_DIR)/discriminator.hpp $(C_DIR)/ines.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:

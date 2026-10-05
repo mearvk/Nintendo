@@ -59,15 +59,23 @@ typedef struct {
     uint8_t       submapper;       /* NES 2.0 only (else 0)            */
     uint32_t      prg_banks;       /* count of 16 KiB PRG banks        */
     uint32_t      chr_banks;       /* count of  8 KiB CHR banks (0=RAM)*/
-    uint32_t      prg_bytes;
-    uint32_t      chr_bytes;
+    uint64_t      prg_bytes;       /* 64-bit: NES 2.0 reaches 64 MiB   */
+    uint64_t      chr_bytes;       /* 64-bit: NES 2.0 reaches 32 MiB   */
     nts_mirroring mirroring;
     int           has_battery;     /* persistent WRAM present          */
     int           has_trainer;     /* 512-byte trainer present         */
     int           uses_chr_ram;    /* chr_banks == 0                   */
 
-    uint32_t      file_size;       /* actual size on disk              */
-    uint32_t      computed_size;   /* header + trainer + prg + chr     */
+    /* NES 2.0 RAM-shift fields (byte 10 / byte 11). 0 when iNES or absent. */
+    uint64_t      prg_ram_bytes;   /* non-volatile + volatile WRAM     */
+    uint64_t      chr_ram_bytes;   /* CHR work/save RAM                */
+    int           exponent_prg;    /* PRG size used exponent notation  */
+    int           exponent_chr;    /* CHR size used exponent notation  */
+
+    uint64_t      file_size;       /* actual size on disk              */
+    uint64_t      computed_size;   /* header + trainer + prg + chr     */
+    int64_t       trailer_bytes;   /* file_size - computed_size (>=0)  */
+    int           truncated;       /* computed_size > file_size        */
 
     nts_region    regions[4];      /* header, [trainer], prg, [chr]    */
     uint32_t      region_count;
@@ -75,10 +83,17 @@ typedef struct {
     uint8_t       raw_header[NTS_INES_HEADER_SIZE];
 } nts_rom;
 
+/* Decode a NES 2.0 size nibble-pair into a byte count.
+ *   lsb/msb form a 12-bit count of banks (count * unit), UNLESS the top
+ *   nibble == 0x0F, in which case the field is exponent notation:
+ *   byte value MM*2 + MM meaning  size = 2^E * (M*2 + 1).  Returns bytes.
+ * `is_exponent` (optional) is set to 1 when exponent form was used. */
+uint64_t nts_nes20_size(uint16_t low12, uint32_t unit, int *is_exponent);
+
 /* Parse a header buffer of at least NTS_INES_HEADER_SIZE bytes, with the
  * total file size for region/consistency computation. */
 nts_status nts_parse(const uint8_t *buf, size_t buf_len,
-                     uint32_t file_size, nts_rom *out);
+                     uint64_t file_size, nts_rom *out);
 
 /* Read a file from disk and parse its structure. */
 nts_status nts_read_file(const char *path, nts_rom *out);
