@@ -22,3 +22,7 @@ nts/nts-canvas
 # Full zeroed canvas bodies are large and must never be committed:
 *.canvas.nes
 nts/*.nes
+
+# Java tool build output:
+nts/java-rom-tool/out/
+*.class
