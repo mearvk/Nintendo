@@ -26,3 +26,12 @@ nts/*.nes
 # Java tool build output:
 nts/java-rom-tool/out/
 *.class
+
+# tools build outputs (compiled from tools/ sources) and example artifacts:
+tools/asm6502/asm6502
+tools/chr-encoder/chr_encode
+tools/audio-builder/audio_build
+tools/exec-harness/exec6502
+tools/examples/*.bin
+tools/examples/*.chr
+tools/examples/*.snd
