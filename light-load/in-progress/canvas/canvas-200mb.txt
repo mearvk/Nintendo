@@ -1,0 +1,6 @@
+wrote in-progress/canvas/canvas-200mb.header.nes
+  declared PRG : 224.00 MB (requested 200.00 MB)
+  declared CHR : 32.00 MB (requested 32.00 MB)
+  mapper       : 5 (battery)
+  body written : no (header-only capacity declaration)
+  note         : format-capacity canvas; not a runnable ROM.

@@ -19,7 +19,10 @@ nts/
 ├── c-ines-reader/      ines.{h,c}       # structural parser (header -> regions)
 ├── cpp-discriminator/  discriminator.hpp# axes + conditions API
 │                       conditions.cpp   # axes, 5 conditions, ruth diagram, renderers
-│                       main.cpp         # CLI
+│                       main.cpp         # CLI: nts-analyze
+├── c-canvas-gen/       canvas.{h,c}     # original NES 2.0 canvas generator
+│                       main.c           # CLI: nts-canvas
+│                       README.md
 └── Makefile
 ```
 
@@ -64,9 +67,26 @@ cd nts && make
   fields. Sizes are 64-bit throughout, so the same conditions apply to expanded
   images that newer emulators can run.
 
+## Canvas generator (`nts-canvas`)
+
+Emits a **new, empty** NES 2.0 image of a chosen footprint — the legitimate
+"expand the canvas" path (nothing copied from any game). Large sizes use NES
+2.0 exponent notation; a 200 MB request rounds up to the nearest encodable
+`2^E·(M·2+1)` (224 MiB). See [`c-canvas-gen/README.md`](c-canvas-gen/README.md).
+
+```sh
+./nts-canvas out.ineshdr 200 32 5        # header-only capacity declaration
+./nts-analyze out.ineshdr --declare       # report declared PRG/CHR footprint
+```
+
+> A multi-hundred-MB canvas is a **format-capacity** artifact, not a runnable
+> ROM: real mappers/emulators cap out far lower. It demonstrates the format's
+> envelope and gives you a blank, ownable file.
+
 ## Output trees
 
-- `../in-progress/{merit,strategy,components,rules}` — working reports (+ `*.ruth.txt`).
-- `../result/{merit,strategy,components,rules}` — promoted reports (+ `*.ruth.txt`).
+- `../in-progress/{merit,strategy,components,rules,canvas}` — working reports.
+- `../result/{merit,strategy,components,rules,canvas}` — promoted reports.
 
 Promotion rule and recorded outcomes are in each tree's `rules/RULES.md`.
+Canvas capacity examples (`*.ineshdr` + `*.declare.txt`) live in `canvas/`.

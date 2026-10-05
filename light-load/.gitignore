@@ -14,6 +14,11 @@
 
 # NTS build artifacts (compiled from nts/ sources):
 nts/*.o
-nts/c-ines-reader/*.o
-nts/cpp-discriminator/*.o
+nts/**/*.o
 nts/nts-analyze
+nts/nts-canvas
+
+# Canvas generator: 16-byte header declarations (*.ineshdr) are safe to commit.
+# Full zeroed canvas bodies are large and must never be committed:
+*.canvas.nes
+nts/*.nes

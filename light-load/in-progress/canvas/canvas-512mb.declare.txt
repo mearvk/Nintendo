@@ -1,0 +1,6 @@
+declared capacity for in-progress/canvas/canvas-512mb.ineshdr:
+  format : NES 2.0
+  mapper : 5
+  PRG    : 512 MB (exponent notation)
+  CHR    : 64 MB (exponent notation)
+  body   : absent (header-only declaration)
