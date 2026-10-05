@@ -11,3 +11,9 @@
 *.bin
 # Local working copies produced by the editor:
 *.edited.nes
+
+# NTS build artifacts (compiled from nts/ sources):
+nts/*.o
+nts/c/*.o
+nts/cpp/*.o
+nts/nts-analyze
