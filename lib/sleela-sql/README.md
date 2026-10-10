@@ -5,9 +5,16 @@ Part of `mearvk/Nintendo`.
 
 SLeeLa's file surface is **string-oriented, not raw-byte**, so — exactly as with
 `NesEditModel.sleela` in the Professional Editor — it does not touch the CSV
-bytes. Instead it owns the **model and validation** layer: given a planned SQL
+bytes. Instead it owns the **model and validation** layer: given a planned
 statement and a table's schema, it decides whether the statement is well-formed
 *before* the byte engine runs, and prints a clear `OK` / `REFUSE` verdict.
+
+The engine accepts two surface languages — classic **SQL** and the fluent
+**SLeeLaSQL** (see [`/sleela-sql/docs/SLEELASQL.md`](../../sleela-sql/docs/SLEELASQL.md)) —
+but both lower to the **same compiled operation**. This model validates that
+lowered form, so one verdict covers a plan regardless of which dialect expressed
+it, and regardless of whether it used `?` prepared-statement placeholders
+(binding fills values, not shape).
 
 It runs on the **SLeeLa Native VM**:
 

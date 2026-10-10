@@ -2,12 +2,18 @@
 // SqlModel.sleela -- the MODEL for the CSV-backed SQL engine, in SLeeLa.
 //
 // Part of mearvk/Nintendo. Counterpart to the C engine in /sleela-sql. The C
-// tool does the byte/file work (parsing SQL text, reading and writing the CSV
+// tool does the byte/file work (parsing statements, reading and writing the CSV
 // table files); SLeeLa's file surface is string-oriented, not raw-byte, so it
 // owns the *model and validation* layer -- it reasons about whether a planned
 // statement is well-formed against a table's schema BEFORE any CSV byte is
 // touched, and prints a clear verdict. This runs on the SLeeLa Native VM
 // (sleela run lib/sleela-sql/SqlModel.sleela).
+//
+// DIALECT-AGNOSTIC. The engine accepts two surface languages -- classic SQL and
+// the fluent SLeeLaSQL -- but both lower to the SAME compiled operation. This
+// model validates that lowered operation, so a single verdict covers a plan no
+// matter which dialect expressed it (and whether or not it used '?' prepared-
+// statement placeholders, since binding only fills values, not shape).
 //
 // Like NesEditModel.sleela, the model stays within SLeeLa's string surface: the
 // caller supplies the already-computed facts (value count, column count, and
@@ -112,9 +118,9 @@ class SqlModel {
         checkSelect(plan("SELECT", "games", 0, "score", 0, 1), games); // unknown-> REFUSE
 
         print("");
-        print("Hand the OK statements to the byte engine:");
-        print("  sleela-sql ./data \"CREATE TABLE games (id, title, year)\"  (C)");
-        print("  sleela-sql ./data \"INSERT INTO games VALUES (1,'Metroid',1986)\"");
-        print("  sleela-sql ./data \"SELECT title FROM games WHERE year = '1986'\"");
+        print("Hand the OK statements to the byte engine, in either dialect:");
+        print("  SQL:       sleela-sql ./data \"SELECT title FROM games WHERE year = '1986'\"");
+        print("  SLeeLaSQL: sleela-sql ./data \"from('games').select(title).where(year == '1986')\"");
+        print("  Prepared:  into('games').insert(?, ?, ?)  -- compile once, bind + run many");
     }
 }

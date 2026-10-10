@@ -2,10 +2,20 @@
  * sleela_sql.c -- CSV-backed MySQL-subset engine (C implementation).
  * Part of mearvk/Nintendo.
  *
+ * Architecture: parse -> compiled IR (ssql_stmt) -> execute.
+ *
+ *   Surface language   Compiler              Compiled IR     Executor
+ *   ----------------   -------------------   -------------   -------------------
+ *   SQL            --> compile_sql()     \
+ *                                          >-->  ssql_stmt  -->  exec_stmt()
+ *   SLeeLaSQL      --> compile_sleela()  /
+ *
+ * Both dialects lower to the SAME ssql_stmt, so they are feature-complete with
+ * each other and share one executor. A compiled statement can carry '?'
+ * placeholders and be re-bound and re-run -- the PreparedStatement speed-up.
+ *
  * Storage model: one CSV file per table (<dir>/<name>.csv). The first line is
- * the header (column names); each following line is a record. CSV fields are
- * comma-separated and may be double-quoted; a quote inside a quoted field is
- * doubled ("" ). This is deliberately small and dependency-free.
+ * the header (column names); each following line is a record.
  */
 #include "sleela_sql.h"
 
@@ -15,7 +25,9 @@
 #include <strings.h>  /* strcasecmp */
 #include <dirent.h>
 
-/* ---- small string helpers -------------------------------------------- */
+/* ===================================================================== *
+ *  Small string helpers
+ * ===================================================================== */
 
 static char *str_dup(const char *s) {
     size_t n = strlen(s) + 1;
@@ -38,7 +50,6 @@ static int kw_eq(const char *s, const char *kw) {
     for (size_t i = 0; i < n; i++) {
         if (tolower((unsigned char)s[i]) != tolower((unsigned char)kw[i])) return 0;
     }
-    /* keyword boundary: next char is end or non-identifier */
     char c = s[n];
     return (c == '\0' || isspace((unsigned char)c) || c == '(' || c == '*' || c == ';');
 }
@@ -81,7 +92,9 @@ static int split_fields(char *s, char **out, int max) {
     return n;
 }
 
-/* ---- CSV field writing ----------------------------------------------- */
+/* ===================================================================== *
+ *  CSV field I/O
+ * ===================================================================== */
 
 /* Write one CSV field, quoting only if it contains comma, quote, or newline. */
 static void csv_write_field(FILE *out, const char *v) {
@@ -111,13 +124,12 @@ static void csv_write_row(FILE *out, char **fields, int n) {
  * `line` is mutated. Returns field count.
  */
 static int csv_parse_line(char *line, char **out, int max) {
-    /* strip trailing CR/LF */
     size_t n = strlen(line);
     while (n && (line[n - 1] == '\n' || line[n - 1] == '\r')) line[--n] = '\0';
 
     int count = 0;
-    char *w = line;         /* write cursor (in-place compaction)          */
-    char *field = line;     /* start of current field                      */
+    char *w = line;
+    char *field = line;
     int in_quotes = 0;
     char *p = line;
     for (;; p++) {
@@ -138,7 +150,7 @@ static int csv_parse_line(char *line, char **out, int max) {
                 *w = '\0';
                 if (count < max) out[count++] = field;
                 if (c == '\0') break;
-                w++;            /* step over the NUL we just wrote          */
+                w++;
                 field = w;
             } else {
                 *w++ = c;
@@ -148,119 +160,23 @@ static int csv_parse_line(char *line, char **out, int max) {
     return count;
 }
 
-/* ---- path helpers ---------------------------------------------------- */
+/* ===================================================================== *
+ *  Path helpers
+ * ===================================================================== */
+
+/* dir (<=SSQL_MAX_FIELD) + '/' + name (<=SSQL_MAX_FIELD) + ".csv" + NUL */
+#define SSQL_MAX_PATH (SSQL_MAX_FIELD * 2 + 8)
 
 static void table_path(const ssql_db *db, const char *name, char *buf, size_t cap) {
     snprintf(buf, cap, "%s/%s.csv", db->dir, name);
 }
 
 static int table_exists(const ssql_db *db, const char *name) {
-    char path[SSQL_MAX_FIELD * 2];
+    char path[SSQL_MAX_PATH];
     table_path(db, name, path, sizeof(path));
     FILE *f = fopen(path, "rb");
     if (f) { fclose(f); return 1; }
     return 0;
-}
-
-/* ---- statement handlers ---------------------------------------------- */
-
-/* CREATE TABLE <name> (<c1>, <c2>, ...) */
-static ssql_status do_create(ssql_db *db, char *rest) {
-    char *lp = strchr(rest, '(');
-    char *rp = strrchr(rest, ')');
-    if (!lp || !rp || rp < lp) return SSQL_ERR_SYNTAX;
-    *lp = '\0';
-    char *name = trim(rest);
-    if (!*name) return SSQL_ERR_SYNTAX;
-    if (table_exists(db, name)) return SSQL_ERR_EXISTS;
-
-    *rp = '\0';
-    char *cols[SSQL_MAX_COLS];
-    int ncols = split_fields(lp + 1, cols, SSQL_MAX_COLS);
-    if (ncols < 1) return SSQL_ERR_SYNTAX;
-
-    char path[SSQL_MAX_FIELD * 2];
-    table_path(db, name, path, sizeof(path));
-    FILE *f = fopen(path, "wb");
-    if (!f) return SSQL_ERR_IO;
-    csv_write_row(f, cols, ncols);
-    fclose(f);
-    return SSQL_OK;
-}
-
-/* DROP TABLE [IF EXISTS] <name> */
-static ssql_status do_drop(ssql_db *db, char *rest) {
-    char *name = trim(rest);
-    int if_exists = 0;
-    if (kw_eq(name, "if")) {
-        name = trim(name + 2);
-        if (kw_eq(name, "exists")) { name = trim(name + 6); if_exists = 1; }
-    }
-    if (!*name) return SSQL_ERR_SYNTAX;
-    if (!table_exists(db, name)) return if_exists ? SSQL_OK : SSQL_ERR_NOTABLE;
-    char path[SSQL_MAX_FIELD * 2];
-    table_path(db, name, path, sizeof(path));
-    return remove(path) == 0 ? SSQL_OK : SSQL_ERR_IO;
-}
-
-/* Read the header row of a table into `cols` (caller frees each). */
-static ssql_status read_header(const ssql_db *db, const char *name,
-                               char *hdrbuf, size_t cap, char **cols, int *ncols) {
-    char path[SSQL_MAX_FIELD * 2];
-    table_path(db, name, path, sizeof(path));
-    FILE *f = fopen(path, "rb");
-    if (!f) return SSQL_ERR_NOTABLE;
-    if (!fgets(hdrbuf, (int)cap, f)) { fclose(f); hdrbuf[0] = '\0'; }
-    fclose(f);
-    *ncols = csv_parse_line(hdrbuf, cols, SSQL_MAX_COLS);
-    return SSQL_OK;
-}
-
-/* INSERT INTO <name> [(c,...)] VALUES (v,...) */
-static ssql_status do_insert(ssql_db *db, char *rest) {
-    if (!kw_eq(rest, "into")) return SSQL_ERR_SYNTAX;
-    rest = trim(rest + 4);
-
-    /* table name ends at '(' or the VALUES keyword */
-    char *vpos = rest;
-    while (*vpos && !kw_eq(vpos, "values")) vpos++;
-    if (!*vpos) return SSQL_ERR_SYNTAX;
-
-    /* carve the segment before VALUES: "<name>" or "<name> (c,..)" */
-    char nameseg[SSQL_MAX_FIELD];
-    size_t seglen = (size_t)(vpos - rest);
-    if (seglen >= sizeof(nameseg)) return SSQL_ERR_SYNTAX;
-    memcpy(nameseg, rest, seglen);
-    nameseg[seglen] = '\0';
-    char *paren = strchr(nameseg, '(');
-    if (paren) *paren = '\0';          /* ignore explicit column list; positional */
-    char *name = trim(nameseg);
-    if (!*name) return SSQL_ERR_SYNTAX;
-
-    /* values list */
-    char *lp = strchr(vpos, '(');
-    char *rp = strrchr(vpos, ')');
-    if (!lp || !rp || rp < lp) return SSQL_ERR_SYNTAX;
-    *rp = '\0';
-    char *vals[SSQL_MAX_COLS];
-    int nvals = split_fields(lp + 1, vals, SSQL_MAX_COLS);
-    if (nvals < 1) return SSQL_ERR_SYNTAX;
-
-    /* arity check against the header */
-    char hdr[SSQL_MAX_FIELD * 4];
-    char *cols[SSQL_MAX_COLS];
-    int ncols = 0;
-    ssql_status s = read_header(db, name, hdr, sizeof(hdr), cols, &ncols);
-    if (s != SSQL_OK) return s;
-    if (nvals != ncols) return SSQL_ERR_ARITY;
-
-    char path[SSQL_MAX_FIELD * 2];
-    table_path(db, name, path, sizeof(path));
-    FILE *f = fopen(path, "ab");
-    if (!f) return SSQL_ERR_IO;
-    csv_write_row(f, vals, nvals);
-    fclose(f);
-    return SSQL_OK;
 }
 
 static int find_col(char **cols, int ncols, const char *name) {
@@ -269,9 +185,179 @@ static int find_col(char **cols, int ncols, const char *name) {
     return -1;
 }
 
-/* SELECT * | c,... FROM <name> [WHERE col = 'v'] */
-static ssql_status do_select(ssql_db *db, char *rest, FILE *out) {
-    /* projection: everything up to FROM */
+/* ===================================================================== *
+ *  Compiled statement IR
+ * ===================================================================== */
+
+typedef enum {
+    OP_CREATE,       /* CREATE TABLE                                        */
+    OP_DROP,         /* DROP TABLE                                          */
+    OP_INSERT,       /* INSERT                                              */
+    OP_SELECT,       /* SELECT                                              */
+    OP_SHOW_TABLES   /* SHOW TABLES                                         */
+} ssql_op;
+
+/*
+ * A value slot is either a literal or a '?' placeholder. For placeholders,
+ * `param` is the 1-based parameter index; `lit` holds the bound value (or NULL
+ * until bound). For literals, `param` is 0 and `lit` is the literal text.
+ */
+typedef struct {
+    int   param;     /* 1-based placeholder index, or 0 for a literal */
+    char *lit;       /* literal text, or bound value for a placeholder */
+} ssql_val;
+
+struct ssql_stmt {
+    ssql_db  *db;
+    ssql_op   op;
+
+    char      table[SSQL_MAX_FIELD];
+
+    /* CREATE: column names.  SELECT: projection ("*" => star=1).           */
+    char     *cols[SSQL_MAX_COLS];
+    int       ncols;
+    int       star;            /* SELECT * */
+
+    /* INSERT values (literals and/or placeholders).                        */
+    ssql_val  vals[SSQL_MAX_COLS];
+    int       nvals;
+
+    /* WHERE <col> = <value|?>  (equality only).                            */
+    int       have_where;
+    char      where_col[SSQL_MAX_FIELD];
+    ssql_val  where_val;
+
+    int       drop_if_exists;
+
+    int       nparams;         /* total '?' placeholders                    */
+};
+
+static void val_free(ssql_val *v) {
+    if (v && v->lit) { free(v->lit); v->lit = NULL; }
+}
+
+void ssql_finalize(ssql_stmt *stmt) {
+    if (!stmt) return;
+    for (int i = 0; i < stmt->ncols; i++) free(stmt->cols[i]);
+    for (int i = 0; i < stmt->nvals; i++) val_free(&stmt->vals[i]);
+    val_free(&stmt->where_val);
+    free(stmt);
+}
+
+/* Build an empty, zeroed statement bound to `db`. */
+static ssql_stmt *stmt_new(ssql_db *db) {
+    ssql_stmt *s = (ssql_stmt *)calloc(1, sizeof(*s));
+    if (s) s->db = db;
+    return s;
+}
+
+/*
+ * Set a value slot from raw token text. A bare "?" becomes a placeholder and is
+ * assigned the next parameter index; anything else is stored as a literal
+ * (quotes already stripped by split_fields). Returns 0 on OK, -1 on OOM.
+ */
+static int val_set(ssql_stmt *st, ssql_val *v, const char *token) {
+    if (strcmp(token, "?") == 0) {
+        v->param = ++st->nparams;
+        v->lit = NULL;             /* unbound until ssql_bind */
+        return 0;
+    }
+    v->param = 0;
+    v->lit = str_dup(token);
+    return v->lit ? 0 : -1;
+}
+
+/* ===================================================================== *
+ *  SQL compiler  (text -> ssql_stmt)
+ * ===================================================================== */
+
+/* CREATE TABLE <name> (<c1>, <c2>, ...) */
+static ssql_status sql_create(ssql_stmt *st, char *rest) {
+    char *lp = strchr(rest, '(');
+    char *rp = strrchr(rest, ')');
+    if (!lp || !rp || rp < lp) return SSQL_ERR_SYNTAX;
+    *lp = '\0';
+    char *name = trim(rest);
+    if (!*name) return SSQL_ERR_SYNTAX;
+    snprintf(st->table, sizeof(st->table), "%s", name);
+
+    *rp = '\0';
+    char *cols[SSQL_MAX_COLS];
+    int ncols = split_fields(lp + 1, cols, SSQL_MAX_COLS);
+    if (ncols < 1) return SSQL_ERR_SYNTAX;
+    for (int i = 0; i < ncols; i++) {
+        st->cols[i] = str_dup(cols[i]);
+        if (!st->cols[i]) return SSQL_ERR_OOM;
+    }
+    st->ncols = ncols;
+    st->op = OP_CREATE;
+    return SSQL_OK;
+}
+
+/* DROP TABLE [IF EXISTS] <name> */
+static ssql_status sql_drop(ssql_stmt *st, char *rest) {
+    char *name = trim(rest);
+    if (kw_eq(name, "if")) {
+        name = trim(name + 2);
+        if (kw_eq(name, "exists")) { name = trim(name + 6); st->drop_if_exists = 1; }
+    }
+    if (!*name) return SSQL_ERR_SYNTAX;
+    snprintf(st->table, sizeof(st->table), "%s", name);
+    st->op = OP_DROP;
+    return SSQL_OK;
+}
+
+/* INSERT INTO <name> [(c,...)] VALUES (v,...) */
+static ssql_status sql_insert(ssql_stmt *st, char *rest) {
+    if (!kw_eq(rest, "into")) return SSQL_ERR_SYNTAX;
+    rest = trim(rest + 4);
+
+    char *vpos = rest;
+    while (*vpos && !kw_eq(vpos, "values")) vpos++;
+    if (!*vpos) return SSQL_ERR_SYNTAX;
+
+    char nameseg[SSQL_MAX_FIELD];
+    size_t seglen = (size_t)(vpos - rest);
+    if (seglen >= sizeof(nameseg)) return SSQL_ERR_SYNTAX;
+    memcpy(nameseg, rest, seglen);
+    nameseg[seglen] = '\0';
+    char *paren = strchr(nameseg, '(');
+    if (paren) *paren = '\0';          /* positional insert; column list ignored */
+    char *name = trim(nameseg);
+    if (!*name) return SSQL_ERR_SYNTAX;
+    snprintf(st->table, sizeof(st->table), "%s", name);
+
+    char *lp = strchr(vpos, '(');
+    char *rp = strrchr(vpos, ')');
+    if (!lp || !rp || rp < lp) return SSQL_ERR_SYNTAX;
+    *rp = '\0';
+    char *vals[SSQL_MAX_COLS];
+    int nvals = split_fields(lp + 1, vals, SSQL_MAX_COLS);
+    if (nvals < 1) return SSQL_ERR_SYNTAX;
+    for (int i = 0; i < nvals; i++)
+        if (val_set(st, &st->vals[i], vals[i]) != 0) return SSQL_ERR_OOM;
+    st->nvals = nvals;
+    st->op = OP_INSERT;
+    return SSQL_OK;
+}
+
+/* Parse "<col> = <value|?>" into st->where_*. `expr` is mutated. */
+static ssql_status parse_where(ssql_stmt *st, char *expr) {
+    char *eq = strchr(expr, '=');
+    if (!eq) return SSQL_ERR_SYNTAX;
+    *eq = '\0';
+    char *wc = trim(expr);
+    char *wv = trim(eq + 1);
+    if (!*wc) return SSQL_ERR_SYNTAX;
+    snprintf(st->where_col, sizeof(st->where_col), "%s", wc);
+    if (strcmp(wv, "?") != 0) wv = unquote(wv);
+    if (val_set(st, &st->where_val, wv) != 0) return SSQL_ERR_OOM;
+    st->have_where = 1;
+    return SSQL_OK;
+}
+
+/* SELECT * | c,... FROM <name> [WHERE col = value] */
+static ssql_status sql_select(ssql_stmt *st, char *rest) {
     char *fpos = rest;
     while (*fpos && !kw_eq(fpos, "from")) fpos++;
     if (!*fpos) return SSQL_ERR_SYNTAX;
@@ -282,7 +368,6 @@ static ssql_status do_select(ssql_db *db, char *rest, FILE *out) {
     projbuf[plen] = '\0';
     char *proj = trim(projbuf);
 
-    /* after FROM: "<name> [WHERE ...]" */
     char *after = trim(fpos + 4);
     char *wpos = after;
     while (*wpos && !kw_eq(wpos, "where")) wpos++;
@@ -293,63 +378,328 @@ static ssql_status do_select(ssql_db *db, char *rest, FILE *out) {
     namebuf[nlen] = '\0';
     char *name = trim(namebuf);
     if (!*name) return SSQL_ERR_SYNTAX;
+    snprintf(st->table, sizeof(st->table), "%s", name);
 
-    /* optional WHERE col = value (equality only) */
-    char where_col[SSQL_MAX_FIELD] = {0};
-    char where_val[SSQL_MAX_FIELD] = {0};
-    int have_where = 0;
-    if (*wpos) {
-        char *expr = trim(wpos + 5);
-        char *eq = strchr(expr, '=');
-        if (!eq) return SSQL_ERR_SYNTAX;
-        *eq = '\0';
-        char *wc = trim(expr);
-        char *wv = unquote(trim(eq + 1));
-        if (!*wc) return SSQL_ERR_SYNTAX;
-        snprintf(where_col, sizeof(where_col), "%s", wc);
-        snprintf(where_val, sizeof(where_val), "%s", wv);
-        have_where = 1;
+    if (strcmp(proj, "*") == 0) {
+        st->star = 1;
+    } else {
+        char *pcols[SSQL_MAX_COLS];
+        int np = split_fields(proj, pcols, SSQL_MAX_COLS);
+        if (np < 1) return SSQL_ERR_SYNTAX;
+        for (int i = 0; i < np; i++) {
+            st->cols[i] = str_dup(pcols[i]);
+            if (!st->cols[i]) return SSQL_ERR_OOM;
+        }
+        st->ncols = np;
     }
 
-    char path[SSQL_MAX_FIELD * 2];
-    table_path(db, name, path, sizeof(path));
+    if (*wpos) {
+        char *expr = trim(wpos + 5);
+        ssql_status s = parse_where(st, expr);
+        if (s != SSQL_OK) return s;
+    }
+    st->op = OP_SELECT;
+    return SSQL_OK;
+}
+
+static ssql_status compile_sql(ssql_stmt *st, char *stmt) {
+    if (kw_eq(stmt, "create")) {
+        char *r = trim(stmt + 6);
+        if (!kw_eq(r, "table")) return SSQL_ERR_SYNTAX;
+        return sql_create(st, trim(r + 5));
+    }
+    if (kw_eq(stmt, "drop")) {
+        char *r = trim(stmt + 4);
+        if (!kw_eq(r, "table")) return SSQL_ERR_SYNTAX;
+        return sql_drop(st, trim(r + 5));
+    }
+    if (kw_eq(stmt, "insert")) return sql_insert(st, trim(stmt + 6));
+    if (kw_eq(stmt, "select")) return sql_select(st, trim(stmt + 6));
+    if (kw_eq(stmt, "show")) {
+        char *r = trim(stmt + 4);
+        if (kw_eq(r, "tables")) { st->op = OP_SHOW_TABLES; return SSQL_OK; }
+        return SSQL_ERR_SYNTAX;
+    }
+    return SSQL_ERR_SYNTAX;
+}
+
+/* ===================================================================== *
+ *  SLeeLaSQL compiler  (fluent dialect -> ssql_stmt)
+ *
+ *  Grammar (dot-chained calls; '?' is a placeholder):
+ *
+ *    table("games").create(id, title, year)
+ *    into("games").insert(?, ?, ?)
+ *    from("games").select(title, year).where(year == ?)
+ *    from("games").select(*)
+ *    from("games").drop()                 // or drop(ifExists)
+ *    tables()
+ *
+ *  It is deliberately a thin, 1:1 lowering onto the same IR as SQL -- same
+ *  features, same executor, same placeholders -- just a cleaner surface.
+ * ===================================================================== */
+
+/* Pull the argument text inside the FIRST (...) that follows `*pp`. Advances
+ * `*pp` past the closing ')'. Writes a NUL-terminated copy into `out`. */
+static int take_parens(char **pp, char *out, size_t cap) {
+    char *p = *pp;
+    while (*p && *p != '(') p++;
+    if (*p != '(') return -1;
+    p++;
+    int depth = 1;
+    char quote = 0;
+    size_t n = 0;
+    while (*p) {
+        char c = *p;
+        if (quote) { if (c == quote) quote = 0; }
+        else if (c == '\'' || c == '"') quote = c;
+        else if (c == '(') depth++;
+        else if (c == ')') { depth--; if (depth == 0) { p++; break; } }
+        if (depth == 0) break;
+        if (n + 1 < cap) out[n++] = c;
+        p++;
+    }
+    out[n] = '\0';
+    *pp = p;
+    return 0;
+}
+
+/* Read the chain method name at `*pp` (letters), lower-cased into `out`. */
+static int take_method(char **pp, char *out, size_t cap) {
+    char *p = *pp;
+    while (*p == '.' || isspace((unsigned char)*p)) p++;
+    size_t n = 0;
+    while (isalpha((unsigned char)*p)) {
+        if (n + 1 < cap) out[n++] = (char)tolower((unsigned char)*p);
+        p++;
+    }
+    out[n] = '\0';
+    *pp = p;
+    return n > 0 ? 0 : -1;
+}
+
+/* Translate "a == b" / "a = b" inside a where(...) to the shared parser form. */
+static ssql_status sleela_where(ssql_stmt *st, char *expr) {
+    /* accept '==' by collapsing to '=' */
+    char *dd = strstr(expr, "==");
+    if (dd) { dd[0] = '='; memmove(dd + 1, dd + 2, strlen(dd + 2) + 1); }
+    return parse_where(st, expr);
+}
+
+static ssql_status compile_sleela(ssql_stmt *st, char *src) {
+    char method[64];
+    char args[SSQL_MAX_FIELD];
+    char *p = src;
+
+    if (take_method(&p, method, sizeof(method)) != 0) return SSQL_ERR_SYNTAX;
+
+    if (strcmp(method, "tables") == 0) {
+        st->op = OP_SHOW_TABLES;
+        return SSQL_OK;
+    }
+
+    /* The three roots that carry a table name: table(...), into(...), from(...) */
+    int is_table = (strcmp(method, "table") == 0);
+    int is_into  = (strcmp(method, "into")  == 0);
+    int is_from  = (strcmp(method, "from")  == 0);
+    if (!is_table && !is_into && !is_from) return SSQL_ERR_SYNTAX;
+
+    if (take_parens(&p, args, sizeof(args)) != 0) return SSQL_ERR_SYNTAX;
+    {
+        char *nm = unquote(trim(args));
+        if (!*nm) return SSQL_ERR_SYNTAX;
+        snprintf(st->table, sizeof(st->table), "%s", nm);
+    }
+
+    /* second method: the verb */
+    if (take_method(&p, method, sizeof(method)) != 0) return SSQL_ERR_SYNTAX;
+
+    if (is_table && strcmp(method, "create") == 0) {
+        if (take_parens(&p, args, sizeof(args)) != 0) return SSQL_ERR_SYNTAX;
+        char *cols[SSQL_MAX_COLS];
+        int nc = split_fields(args, cols, SSQL_MAX_COLS);
+        if (nc < 1) return SSQL_ERR_SYNTAX;
+        for (int i = 0; i < nc; i++) {
+            st->cols[i] = str_dup(cols[i]);
+            if (!st->cols[i]) return SSQL_ERR_OOM;
+        }
+        st->ncols = nc;
+        st->op = OP_CREATE;
+        return SSQL_OK;
+    }
+
+    if (is_from && strcmp(method, "drop") == 0) {
+        if (take_parens(&p, args, sizeof(args)) != 0) return SSQL_ERR_SYNTAX;
+        char *a = trim(args);
+        if (strcasecmp(a, "ifexists") == 0 || strcasecmp(a, "if_exists") == 0)
+            st->drop_if_exists = 1;
+        st->op = OP_DROP;
+        return SSQL_OK;
+    }
+
+    if (is_into && strcmp(method, "insert") == 0) {
+        if (take_parens(&p, args, sizeof(args)) != 0) return SSQL_ERR_SYNTAX;
+        char *vals[SSQL_MAX_COLS];
+        int nv = split_fields(args, vals, SSQL_MAX_COLS);
+        if (nv < 1) return SSQL_ERR_SYNTAX;
+        for (int i = 0; i < nv; i++)
+            if (val_set(st, &st->vals[i], vals[i]) != 0) return SSQL_ERR_OOM;
+        st->nvals = nv;
+        st->op = OP_INSERT;
+        return SSQL_OK;
+    }
+
+    if (is_from && strcmp(method, "select") == 0) {
+        if (take_parens(&p, args, sizeof(args)) != 0) return SSQL_ERR_SYNTAX;
+        char *proj = trim(args);
+        if (strcmp(proj, "*") == 0 || *proj == '\0') {
+            st->star = 1;
+        } else {
+            char *pcols[SSQL_MAX_COLS];
+            int np = split_fields(proj, pcols, SSQL_MAX_COLS);
+            if (np < 1) return SSQL_ERR_SYNTAX;
+            for (int i = 0; i < np; i++) {
+                st->cols[i] = str_dup(pcols[i]);
+                if (!st->cols[i]) return SSQL_ERR_OOM;
+            }
+            st->ncols = np;
+        }
+        st->op = OP_SELECT;
+        /* optional trailing .where(...) */
+        char saved[64];
+        char *probe = p;
+        if (take_method(&probe, saved, sizeof(saved)) == 0 &&
+            strcmp(saved, "where") == 0) {
+            p = probe;
+            if (take_parens(&p, args, sizeof(args)) != 0) return SSQL_ERR_SYNTAX;
+            ssql_status s = sleela_where(st, trim(args));
+            if (s != SSQL_OK) return s;
+        }
+        return SSQL_OK;
+    }
+
+    return SSQL_ERR_SYNTAX;
+}
+
+/* ===================================================================== *
+ *  Dialect sniffing
+ * ===================================================================== */
+
+/*
+ * Heuristic: SLeeLaSQL always begins with one of its fluent roots --
+ * table(, into(, from(, tables( -- so a statement whose first identifier is one
+ * of those and is immediately followed by '(' is SLeeLaSQL. Everything else is
+ * treated as SQL. (AUTO only; callers can force a dialect.)
+ */
+static ssql_dialect sniff(const char *stmt) {
+    const char *p = stmt;
+    while (*p && isspace((unsigned char)*p)) p++;
+    char word[16];
+    size_t n = 0;
+    while (isalpha((unsigned char)*p) && n + 1 < sizeof(word))
+        word[n++] = (char)tolower((unsigned char)*p++);
+    word[n] = '\0';
+    while (*p && isspace((unsigned char)*p)) p++;
+    if (*p != '(') return SSQL_DIALECT_SQL;
+    if (!strcmp(word, "table") || !strcmp(word, "into") ||
+        !strcmp(word, "from")  || !strcmp(word, "tables"))
+        return SSQL_DIALECT_SLEELA;
+    return SSQL_DIALECT_SQL;
+}
+
+/* ===================================================================== *
+ *  Executor  (ssql_stmt -> effect / rows)
+ * ===================================================================== */
+
+/* Resolve a value slot to its effective string (literal or bound value). */
+static ssql_status val_resolve(const ssql_val *v, const char **out) {
+    if (v->param != 0 && v->lit == NULL) return SSQL_ERR_BIND;
+    *out = v->lit ? v->lit : "";
+    return SSQL_OK;
+}
+
+static ssql_status exec_create(ssql_stmt *st) {
+    if (table_exists(st->db, st->table)) return SSQL_ERR_EXISTS;
+    char path[SSQL_MAX_PATH];
+    table_path(st->db, st->table, path, sizeof(path));
+    FILE *f = fopen(path, "wb");
+    if (!f) return SSQL_ERR_IO;
+    csv_write_row(f, st->cols, st->ncols);
+    fclose(f);
+    return SSQL_OK;
+}
+
+static ssql_status exec_drop(ssql_stmt *st) {
+    if (!table_exists(st->db, st->table))
+        return st->drop_if_exists ? SSQL_OK : SSQL_ERR_NOTABLE;
+    char path[SSQL_MAX_PATH];
+    table_path(st->db, st->table, path, sizeof(path));
+    return remove(path) == 0 ? SSQL_OK : SSQL_ERR_IO;
+}
+
+static ssql_status exec_insert(ssql_stmt *st) {
+    /* arity check against the stored header */
+    char path[SSQL_MAX_PATH];
+    table_path(st->db, st->table, path, sizeof(path));
+    FILE *f = fopen(path, "rb");
+    if (!f) return SSQL_ERR_NOTABLE;
+    char hdr[SSQL_MAX_FIELD * 8];
+    char *cols[SSQL_MAX_COLS];
+    int ncols = 0;
+    if (fgets(hdr, sizeof(hdr), f)) ncols = csv_parse_line(hdr, cols, SSQL_MAX_COLS);
+    fclose(f);
+    if (st->nvals != ncols) return SSQL_ERR_ARITY;
+
+    /* resolve each value (literal or bound placeholder) */
+    const char *resolved[SSQL_MAX_COLS];
+    for (int i = 0; i < st->nvals; i++) {
+        ssql_status s = val_resolve(&st->vals[i], &resolved[i]);
+        if (s != SSQL_OK) return s;
+    }
+
+    f = fopen(path, "ab");
+    if (!f) return SSQL_ERR_IO;
+    csv_write_row(f, (char **)resolved, st->nvals);
+    fclose(f);
+    return SSQL_OK;
+}
+
+static ssql_status exec_select(ssql_stmt *st, FILE *out) {
+    const char *where_val = NULL;
+    if (st->have_where) {
+        ssql_status s = val_resolve(&st->where_val, &where_val);
+        if (s != SSQL_OK) return s;
+    }
+
+    char path[SSQL_MAX_PATH];
+    table_path(st->db, st->table, path, sizeof(path));
     FILE *f = fopen(path, "rb");
     if (!f) return SSQL_ERR_NOTABLE;
 
-    /* header -- parsed in place in hdrbuf, which stays live for this call */
     char line[SSQL_MAX_FIELD * 8];
     char hdrbuf[SSQL_MAX_FIELD * 8];
     char *cols[SSQL_MAX_COLS];
     int ncols = 0;
-    if (fgets(hdrbuf, sizeof(hdrbuf), f)) {
-        ncols = csv_parse_line(hdrbuf, cols, SSQL_MAX_COLS);
-    }
+    if (fgets(hdrbuf, sizeof(hdrbuf), f)) ncols = csv_parse_line(hdrbuf, cols, SSQL_MAX_COLS);
 
-    /* resolve projection to column indices */
     int proj_idx[SSQL_MAX_COLS];
     int nproj = 0;
-    int star = (strcmp(proj, "*") == 0);
-    if (star) {
+    if (st->star) {
         for (int i = 0; i < ncols; i++) proj_idx[nproj++] = i;
     } else {
-        char projtmp[SSQL_MAX_FIELD];
-        snprintf(projtmp, sizeof(projtmp), "%s", proj);
-        char *pcols[SSQL_MAX_COLS];
-        int np = split_fields(projtmp, pcols, SSQL_MAX_COLS);
-        for (int i = 0; i < np; i++) {
-            int idx = find_col(cols, ncols, pcols[i]);
+        for (int i = 0; i < st->ncols; i++) {
+            int idx = find_col(cols, ncols, st->cols[i]);
             if (idx < 0) { fclose(f); return SSQL_ERR_NOCOL; }
             proj_idx[nproj++] = idx;
         }
     }
 
     int where_idx = -1;
-    if (have_where) {
-        where_idx = find_col(cols, ncols, where_col);
+    if (st->have_where) {
+        where_idx = find_col(cols, ncols, st->where_col);
         if (where_idx < 0) { fclose(f); return SSQL_ERR_NOCOL; }
     }
 
-    /* header row of the result set */
     if (out) {
         for (int i = 0; i < nproj; i++) {
             if (i) fputc(',', out);
@@ -358,14 +708,13 @@ static ssql_status do_select(ssql_db *db, char *rest, FILE *out) {
         fputc('\n', out);
     }
 
-    /* data rows */
     while (fgets(line, sizeof(line), f)) {
         char rowtmp[SSQL_MAX_FIELD * 8];
         snprintf(rowtmp, sizeof(rowtmp), "%s", line);
         char *fields[SSQL_MAX_COLS];
         int nf = csv_parse_line(rowtmp, fields, SSQL_MAX_COLS);
         if (nf == 0) continue;
-        if (have_where) {
+        if (st->have_where) {
             if (where_idx >= nf) continue;
             if (strcmp(fields[where_idx], where_val) != 0) continue;
         }
@@ -382,9 +731,8 @@ static ssql_status do_select(ssql_db *db, char *rest, FILE *out) {
     return SSQL_OK;
 }
 
-/* SHOW TABLES -- lists <name> for every <name>.csv in the dir (POSIX dirent). */
-static ssql_status do_show_tables(ssql_db *db, FILE *out) {
-    DIR *d = opendir(db->dir);
+static ssql_status exec_show_tables(ssql_stmt *st, FILE *out) {
+    DIR *d = opendir(st->db->dir);
     if (!d) return SSQL_ERR_IO;
     if (out) fputs("Tables_in_sleela_sql\n", out);
     struct dirent *e;
@@ -407,7 +755,20 @@ static ssql_status do_show_tables(ssql_db *db, FILE *out) {
     return SSQL_OK;
 }
 
-/* ---- public API ------------------------------------------------------ */
+static ssql_status exec_stmt(ssql_stmt *st, FILE *out) {
+    switch (st->op) {
+        case OP_CREATE:      return exec_create(st);
+        case OP_DROP:        return exec_drop(st);
+        case OP_INSERT:      return exec_insert(st);
+        case OP_SELECT:      return exec_select(st, out);
+        case OP_SHOW_TABLES: return exec_show_tables(st, out);
+        default:             return SSQL_ERR_SYNTAX;
+    }
+}
+
+/* ===================================================================== *
+ *  Public API
+ * ===================================================================== */
 
 ssql_status ssql_open(ssql_db *db, const char *dir) {
     if (!db || !dir) return SSQL_ERR_ARG;
@@ -415,41 +776,84 @@ ssql_status ssql_open(ssql_db *db, const char *dir) {
     return SSQL_OK;
 }
 
-ssql_status ssql_exec(ssql_db *db, const char *sql, FILE *out) {
-    if (!db || !sql) return SSQL_ERR_ARG;
+ssql_status ssql_prepare(ssql_db *db, const char *text,
+                         ssql_dialect dialect, ssql_stmt **out_stmt) {
+    if (!db || !text || !out_stmt) return SSQL_ERR_ARG;
+    *out_stmt = NULL;
 
-    /* work on a trimmed, semicolon-free copy */
-    char *buf = str_dup(sql);
-    if (!buf) return SSQL_ERR_IO;
+    char *buf = str_dup(text);
+    if (!buf) return SSQL_ERR_OOM;
     char *stmt = trim(buf);
     size_t n = strlen(stmt);
     while (n && (stmt[n - 1] == ';' || isspace((unsigned char)stmt[n - 1])))
         stmt[--n] = '\0';
     if (!*stmt) { free(buf); return SSQL_ERR_SYNTAX; }
 
-    ssql_status s;
-    if (kw_eq(stmt, "create")) {
-        char *r = trim(stmt + 6);
-        if (!kw_eq(r, "table")) s = SSQL_ERR_SYNTAX;
-        else s = do_create(db, trim(r + 5));
-    } else if (kw_eq(stmt, "drop")) {
-        char *r = trim(stmt + 4);
-        if (!kw_eq(r, "table")) s = SSQL_ERR_SYNTAX;
-        else s = do_drop(db, trim(r + 5));
-    } else if (kw_eq(stmt, "insert")) {
-        s = do_insert(db, trim(stmt + 6));
-    } else if (kw_eq(stmt, "select")) {
-        s = do_select(db, trim(stmt + 6), out);
-    } else if (kw_eq(stmt, "show")) {
-        char *r = trim(stmt + 4);
-        if (kw_eq(r, "tables")) s = do_show_tables(db, out);
-        else s = SSQL_ERR_SYNTAX;
-    } else {
-        s = SSQL_ERR_SYNTAX;
-    }
+    if (dialect == SSQL_DIALECT_AUTO) dialect = sniff(stmt);
 
+    ssql_stmt *st = stmt_new(db);
+    if (!st) { free(buf); return SSQL_ERR_OOM; }
+
+    ssql_status s = (dialect == SSQL_DIALECT_SLEELA)
+                        ? compile_sleela(st, stmt)
+                        : compile_sql(st, stmt);
     free(buf);
+    if (s != SSQL_OK) { ssql_finalize(st); return s; }
+
+    *out_stmt = st;
+    return SSQL_OK;
+}
+
+int ssql_param_count(const ssql_stmt *stmt) {
+    return stmt ? stmt->nparams : 0;
+}
+
+/* Point at the value slot for the given 1-based placeholder index, or NULL. */
+static ssql_val *slot_for_param(ssql_stmt *stmt, int index) {
+    for (int i = 0; i < stmt->nvals; i++)
+        if (stmt->vals[i].param == index) return &stmt->vals[i];
+    if (stmt->have_where && stmt->where_val.param == index)
+        return &stmt->where_val;
+    return NULL;
+}
+
+ssql_status ssql_bind(ssql_stmt *stmt, int index, const char *value) {
+    if (!stmt || !value || index < 1 || index > stmt->nparams)
+        return SSQL_ERR_BIND;
+    ssql_val *v = slot_for_param(stmt, index);
+    if (!v) return SSQL_ERR_BIND;
+    char *copy = str_dup(value);
+    if (!copy) return SSQL_ERR_OOM;
+    if (v->lit) free(v->lit);
+    v->lit = copy;
+    return SSQL_OK;
+}
+
+void ssql_reset(ssql_stmt *stmt) {
+    if (!stmt) return;
+    for (int i = 0; i < stmt->nvals; i++)
+        if (stmt->vals[i].param != 0) val_free(&stmt->vals[i]);
+    if (stmt->have_where && stmt->where_val.param != 0)
+        val_free(&stmt->where_val);
+}
+
+ssql_status ssql_run(ssql_stmt *stmt, FILE *out) {
+    if (!stmt) return SSQL_ERR_ARG;
+    return exec_stmt(stmt, out);
+}
+
+ssql_status ssql_exec_dialect(ssql_db *db, const char *text,
+                              ssql_dialect dialect, FILE *out) {
+    ssql_stmt *st = NULL;
+    ssql_status s = ssql_prepare(db, text, dialect, &st);
+    if (s != SSQL_OK) return s;
+    s = ssql_run(st, out);
+    ssql_finalize(st);
     return s;
+}
+
+ssql_status ssql_exec(ssql_db *db, const char *text, FILE *out) {
+    return ssql_exec_dialect(db, text, SSQL_DIALECT_AUTO, out);
 }
 
 const char *ssql_strerror(ssql_status s) {
@@ -462,6 +866,16 @@ const char *ssql_strerror(ssql_status s) {
         case SSQL_ERR_NOCOL:   return "no such column";
         case SSQL_ERR_ARITY:   return "value count does not match column count";
         case SSQL_ERR_ARG:     return "bad argument";
+        case SSQL_ERR_BIND:    return "unbound or out-of-range placeholder";
+        case SSQL_ERR_OOM:     return "out of memory";
         default:               return "unknown error";
+    }
+}
+
+const char *ssql_dialect_name(ssql_dialect d) {
+    switch (d) {
+        case SSQL_DIALECT_SQL:    return "sql";
+        case SSQL_DIALECT_SLEELA: return "sleelasql";
+        default:                  return "auto";
     }
 }
