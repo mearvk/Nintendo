@@ -29,7 +29,7 @@ Equivalent Make target:
 make dev-env ROM=/path/to/game.nes TITLE="Super Mario Bros" OUT=~/rom-projects TRACE=emulator-trace.json
 ```
 
-The generated workspace includes title description, sprite/tile maps and catalog, gameplay hypotheses, state and memory-map notebooks, disassembly, mapper/register reports, a circuit graph, action assessment, editable game rules, rules evaluation, optional emulator traces, JSON/Markdown reports, and a local HTML dashboard. The original ROM is never copied or modified.
+The generated workspace includes title description, sprite/tile maps and catalog, gameplay hypotheses, state and memory-map notebooks, disassembly, mapper/register reports, a circuit graph, action assessment, editable game rules, rules evaluation, optional emulator traces, JSON/Markdown reports, and a local HTML dashboard. The input ROM is never modified; each generated workspace includes a byte-for-byte baseline copy under `rom-project/source/original.nes` and a patch manifest so edits can be rebuilt into a separate ROM.
 
 ## Analysis capabilities
 
