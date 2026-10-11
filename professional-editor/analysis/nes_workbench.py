@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Local-first NES ROM analysis pipeline."""
 from __future__ import annotations
-import argparse, csv, importlib.util, json, re, sys
+import argparse, csv, html, importlib.util, json, re, sys
 from collections import Counter
 from pathlib import Path
 HERE = Path(__file__).resolve().parent
@@ -245,6 +245,23 @@ def analyze(rom, outroot, tracepath=None):
     summary += ["- "+x for x in result["limitations"]]
     summary += ["","See analysis.json for evidence and confidence. disassembly.txt is a candidate linear sweep, not verified source reconstruction."]
     (out/"analysis-summary.md").write_text("\n".join(summary)+"\n",encoding="utf-8")
+    image_block = '<img class="tiles" src="chr-tiles.png" alt="Grayscale raw CHR tile sheet">' if (out/"chr-tiles.png").exists() else '<p>No CHR-ROM tile sheet: the ROM may use CHR-RAM or have no available CHR-ROM bytes.</p>'
+    oam_rows = ""
+    if trace and trace.get("oam_analysis",{}).get("snapshots"):
+        first = trace["oam_analysis"]["snapshots"][0]
+        oam_rows = "<h2>First OAM snapshot</h2><p>Sprite records show hardware OAM positions and attributes, not a fully rendered sprite.</p><table><thead><tr><th>ID</th><th>X</th><th>Y</th><th>Tile</th><th>Palette</th><th>Flags</th></tr></thead><tbody>"
+        for sprite in first["sprites"]:
+            flags = ", ".join(label for label,key in (("H-flip","flip_horizontal"),("V-flip","flip_vertical"),("behind BG","behind_background")) if sprite[key]) or "—"
+            oam_rows += "<tr>" + "".join("<td>"+html.escape(str(v))+"</td>" for v in (sprite["index"],sprite["x"],sprite["y"],f"0x{sprite['tile']:02X}",sprite["palette"],flags)) + "</tr>"
+        oam_rows += "</tbody></table>"
+    html_page = """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NES ROM analysis</title>
+<style>body{font:16px system-ui,sans-serif;max-width:1100px;margin:2rem auto;padding:0 1rem;line-height:1.5;color:#202124}h1,h2{line-height:1.2}.tiles{max-width:100%;image-rendering:pixelated;border:1px solid #888;background:#ddd}nav a{margin-right:1rem}table{border-collapse:collapse}th,td{border:1px solid #aaa;padding:.35rem .55rem;text-align:left}tbody tr:nth-child(even){background:#f4f4f4}.note{padding:.8rem;background:#f5f5f5}</style></head><body>
+<h1>NES ROM analysis: """ + html.escape(rom.name) + """</h1>
+<nav><a href="analysis.json">Machine report (JSON)</a><a href="disassembly.txt">Candidate disassembly</a><a href="analysis-summary.md">Summary (Markdown)</a></nav>
+<p class="note">Static analysis contains hypotheses, not verified source code. Bank mapping and code/data boundaries can be uncertain.</p>
+<h2>Container and code overview</h2><ul><li>Mapper: """ + str(mapper) + """</li><li>PRG bank windows: """ + str(len(bankresults)) + """</li><li>Instruction candidates: """ + str(len(instructions)) + """</li><li>Unique CHR patterns: """ + str(result["graphics"]["unique_tile_patterns"]) + """</li><li>Gameplay/state hypotheses: """ + str(len(result["gameplay_hypotheses"])) + """</li></ul>
+<h2>Raw CHR-ROM tile sheet</h2>""" + image_block + oam_rows + """<h2>Analysis caveats</h2><ul>""" + "".join("<li>"+html.escape(x)+"</li>" for x in result["limitations"]) + """</ul></body></html>"""
+    (out/"index.html").write_text(html_page,encoding="utf-8")
     return {"output":str(out),"mapper":mapper,"bank_count":len(bankresults),"instruction_candidates":len(instructions),
         "tile_count":result["graphics"]["complete_tile_count"]}
 
