@@ -47,6 +47,23 @@ def _oam_summary(events):
             "between_snapshot_changes":changes[:100],
             "note":"Requires an emulator trace event with an OAM field containing 256 byte values or a 512-character hex string."}
 
+def _ppu_snapshot_summary(events):
+    snapshots=[]
+    for idx,event in enumerate(events):
+        if not isinstance(event,dict): continue
+        item={"event_index":idx,"frame":event.get("frame")}
+        palette=_byte_array(event.get("palette")) if "palette" in event else None
+        nametable=_byte_array(event.get("nametable")) if "nametable" in event else None
+        if palette is not None and len(palette)>=32:
+            item["palette_bytes"]=list(palette[:32])
+            item["palette_note"]="Raw palette bytes; emphasis and mirroring interpretation depends on emulator export."
+        if nametable is not None and len(nametable)>=960:
+            item["nametable_tile_grid"]=[list(nametable[y*32:(y+1)*32]) for y in range(30)]
+            item["nametable_note"]="First 960 bytes shown as a 32x30 tile-index grid; attribute bytes are not included in this grid."
+        if len(item)>2: snapshots.append(item)
+    return {"snapshot_count":len(snapshots),"snapshots":snapshots[:100],
+            "note":"Requires emulator trace fields named palette and/or nametable containing byte arrays or hex strings."}
+
 def trace_data(path):
     raw = path.read_text(encoding="utf-8")
     rows = list(csv.DictReader(raw.splitlines())) if path.suffix.lower()==".csv" else json.loads(raw)
@@ -69,7 +86,7 @@ def trace_data(path):
         "hot_program_counters":[{"pc":f"0x{k:04X}","hits":v} for k,v in pcs.most_common(100)],
         "input_values":dict(inputs),
         "frequent_memory_writes":[{"address":f"0x{a:04X}","value":f"0x{v:02X}","count":n} for (a,v),n in writes.most_common(100)],
-        "events":events[:10000], "oam_analysis":_oam_summary(events),
+        "events":events[:10000], "oam_analysis":_oam_summary(events), "ppu_snapshot_analysis":_ppu_snapshot_summary(events),
         "note":"Aggregates supplied emulator exports; this tool does not launch an emulator."}
 
 def graphics(chr_data):
