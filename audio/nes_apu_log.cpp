@@ -1,0 +1,8 @@
+#include <cstdint>
+#include <cstdio>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <sstream>
+#include <string>
+int main(int ac,char**av){if(ac<2)return 2;std::string output;if(ac==4&&std::string(av[2])=="--json")output=av[3];else if(ac!=2)return 2;std::ifstream f(av[1]);if(!f)return 2;std::string line;if(!std::getline(f,line)||line.find("cycle")==std::string::npos||line.find("address")==std::string::npos||line.find("value")==std::string::npos)return 2;uint64_t prev=0,first=0,last=0,count=0;bool have=false;std::map<unsigned long,uint64_t>r;while(std::getline(f,line)){std::stringstream s(line);std::string a,b,c;if(!std::getline(s,a,',')||!std::getline(s,b,',')||!std::getline(s,c,','))return 2;try{size_t n;auto cy=std::stoull(a,&n,0);if(n!=a.size())return 2;auto ad=std::stoul(b,&n,0);if(n!=b.size())return 2;auto v=std::stoul(c,&n,0);if(n!=c.size()||(have&&cy<prev)||!((ad>=0x4000&&ad<=0x4013)||ad==0x4015||ad==0x4017)||v>255)return 2;if(!have)first=cy;last=prev=cy;have=true;count++;r[ad]++;}catch(...){return 2;}}std::ofstream file;std::ostream&o=output.empty()?std::cout:(file.open(output),file);if(!o)return 2;o<<"{\n \"event_count\": "<<count<<",\n \"first_cycle\": ";if(have)o<<first;else o<<"null";o<<",\n \"last_cycle\": ";if(have)o<<last;else o<<"null";o<<",\n \"writes_by_register\": {";bool comma=false;for(auto x:r){char h[20];std::snprintf(h,sizeof h,"0x%04lX",x.first);o<<(comma?",":"")<<"\n \""<<h<<"\": "<<x.second;comma=true;}o<<"\n },\n \"limitations\": \"Register-write validation only; no APU emulation or waveform reconstruction.\"\n}\n";if(!o)return 2;std::cout<<"validated "<<count<<" APU register writes\n";return 0;}
