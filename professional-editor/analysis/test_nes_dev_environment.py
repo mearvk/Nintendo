@@ -33,6 +33,21 @@ class DevEnvironmentTests(unittest.TestCase):
             self.assertTrue(rom.exists()); self.assertFalse((out/"sample-game.nes").exists())
             self.assertFalse(any(root.glob(".nes-analysis-stage-*")))
 
+    def test_rules_from_existing_workspace_survive_force_regeneration(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp); rom=root/"sample.nes"; self.make_rom(rom)
+            out=nes_dev_environment.generate(rom, root, "Rules Test", None, False)
+            rules_path=out/"game-logic/game-rules.json"
+            rules=json.loads(rules_path.read_text(encoding="utf-8"))
+            rules["objective"]="Reach the exit"
+            rules["actions"]=[{"address":"0x8000","label":"entry","verdict":"required","must_precede":[],"must_follow":[],"max_visits":None}]
+            rules_path.write_text(json.dumps(rules), encoding="utf-8")
+            regenerated=nes_dev_environment.generate(rom, root, "Rules Test", None, True, rules_path)
+            stored=json.loads((regenerated/"game-logic/game-rules.json").read_text(encoding="utf-8"))
+            self.assertEqual(stored["objective"], "Reach the exit")
+            report=json.loads((regenerated/"game-logic/rules-evaluation.json").read_text(encoding="utf-8"))
+            self.assertEqual(report["action_count"], 1)
+
     def test_no_overwrite_without_force(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp); rom=root/"sample.nes"; self.make_rom(rom)
