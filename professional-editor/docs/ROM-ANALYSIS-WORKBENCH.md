@@ -9,7 +9,7 @@ From the professional-editor directory with Python 3.10+:
     python3 analysis/nes_workbench.py game.nes --trace emulator-trace.json
     python3 -m unittest analysis/test_nes_inspect.py analysis/test_nes_workbench.py
 
-The pipeline combines the read-only container inspector, a conservative 6502/2A03 linear-sweep listing, mapper-specific candidate PRG bank windows, CHR duplicate-pattern statistics, control-flow candidates, gameplay/state hypotheses, and optional emulator-trace aggregation. Outputs include analysis.json, disassembly.txt, analysis-summary.md, and the first-pass report/tile sheet.
+The pipeline combines the read-only container inspector, a conservative 6502/2A03 linear-sweep listing, mapper-specific candidate PRG bank windows, CHR duplicate-pattern statistics, control-flow candidates, gameplay/state hypotheses, and optional emulator-trace aggregation. Outputs include index.html (a local browser dashboard), analysis.json, disassembly.txt, analysis-summary.md, and the first-pass report/tile sheet.
 
 ## Trace input schema
 
