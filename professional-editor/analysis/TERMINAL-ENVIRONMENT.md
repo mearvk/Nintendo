@@ -28,6 +28,11 @@ By default the output is in the current directory as `development-environment-TI
 - `traces/`: supplied emulator trace and summary, or instructions for adding one.
 - `reports/`: JSON, Markdown, and HTML reports.
 - `manifest.json`: input identity, counts, and limitations.
+- `rom-project/`: immutable baseline, editable `rom-project.json` patch manifest, and `build/modified.nes` output/report.
+
+## Rebuild
+
+Edit `rom-project/rom-project.json` to enable reviewed fixed-length patches, then run `python3 analysis/nes_rom_build.py build --project rom-project/rom-project.json` from `professional-editor/` (adjust the path to the workspace). See `ROM-ROUND-TRIP.md`.
 
 ## Rules and action evaluation
 
@@ -39,4 +44,4 @@ The circuit graph treats decoded instructions as nodes and candidate control-flo
 
 ## Limits
 
-The ROM is read-only and is not copied into the workspace. Raw CHR patterns are not necessarily complete sprites; palettes, OAM, nametables, attributes, and runtime observations are needed for faithful scene reconstruction. The current pipeline normalizes supplied traces but does not launch or control an emulator, single-step the CPU, or inject controller input. Mapper profiles are descriptive and do not execute bank-switch registers. Disassembly and mapper mapping are heuristic, so game-logic findings remain hypotheses until validated. See `ADVANCED-ANALYSIS.md` for the next-stage workflow.
+The input ROM is never modified. A byte-for-byte baseline copy is stored under `rom-project/source/original.nes` so the workspace can produce a rebuilt ROM. Raw CHR patterns are not necessarily complete sprites; palettes, OAM, nametables, attributes, and runtime observations are needed for faithful scene reconstruction. The current pipeline normalizes supplied traces but does not launch or control an emulator, single-step the CPU, or inject controller input. Mapper profiles are descriptive and do not execute bank-switch registers. Disassembly and mapper mapping are heuristic, so game-logic findings remain hypotheses until validated. See `ADVANCED-ANALYSIS.md` for the next-stage workflow.
