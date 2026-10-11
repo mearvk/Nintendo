@@ -45,6 +45,13 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(sprite["y"],10)
         self.assertTrue(sprite["flip_horizontal"])
         self.assertTrue(sprite["flip_vertical"])
+    def test_palette_and_nametable_snapshot_extraction(self):
+        event={"frame":4,"palette":[0]*32,"nametable":[7]*960}
+        result=workbench._ppu_snapshot_summary([event])
+        self.assertEqual(result["snapshot_count"],1)
+        self.assertEqual(len(result["snapshots"][0]["nametable_tile_grid"]),30)
+        self.assertEqual(len(result["snapshots"][0]["nametable_tile_grid"][0]),32)
+        self.assertEqual(result["snapshots"][0]["palette_bytes"][0],0)
     def test_trace_json_aggregation(self):
         with tempfile.TemporaryDirectory() as tmp:
             p=Path(tmp)/"trace.json"
