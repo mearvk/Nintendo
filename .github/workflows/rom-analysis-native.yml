@@ -74,6 +74,26 @@ jobs:
           Run each tool with --help for usage. Keep the original ROM and write edits to a separate output file.
           The native patch builders do not assemble source code or relocate pointers. The disassemblers do not recover mapper-aware control flow.
           '@ | Set-Content -Encoding utf8 dist/README.md
+      - name: Record source commit and checksums (POSIX)
+        if: runner.os != 'Windows'
+        working-directory: professional-editor
+        run: |
+          git rev-parse HEAD > dist/SOURCE_COMMIT.txt
+          if command -v sha256sum >/dev/null 2>&1; then
+            find dist -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > dist/SHA256SUMS.txt
+          else
+            find dist -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 shasum -a 256 > dist/SHA256SUMS.txt
+          fi
+      - name: Record source commit and checksums (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: professional-editor
+        run: |
+          git rev-parse HEAD | Set-Content -Encoding ascii dist/SOURCE_COMMIT.txt
+          Get-ChildItem dist -File | Where-Object Name -ne 'SHA256SUMS.txt' | Sort-Object Name | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "$hash  $($_.Name)"
+          } | Set-Content -Encoding ascii dist/SHA256SUMS.txt
       - name: Upload OS-specific native binaries
         uses: actions/upload-artifact@v4
         with:
