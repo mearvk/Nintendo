@@ -36,6 +36,7 @@ class InspectorTests(unittest.TestCase):
             self.assertEqual(report["header"]["chr_rom_bytes_declared"], 8192)
             self.assertEqual(report["findings"]["chr_tile_count_complete_8x8"], 512)
             self.assertTrue((root / "out" / "sample" / "chr-tiles.pgm").exists())
+            self.assertTrue((root / "out" / "sample" / "chr-tiles.png").exists())
 
     def test_trainer_shifts_prg_file_offset(self):
         with tempfile.TemporaryDirectory() as temp:
