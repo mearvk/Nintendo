@@ -10,11 +10,12 @@ else
 EXEEXT ?=
 endif
 
-.PHONY: all native c cpp cli release-binaries test test-python test-native test-cli dev-env dev-env-help rom-build-help rom-project rom-build example-rom example-inspect examples-help clean help
+.PHONY: all native c cpp disasm-native cli release-binaries test test-python test-native test-cli dev-env dev-env-help rom-build-help rom-project rom-build example-rom example-inspect examples-help clean help
 all: native cli
-native: c cpp
+native: c cpp disasm-native
 c: $(BUILD_DIR)/nes-native-c$(EXEEXT) $(BUILD_DIR)/nes-rom-build-c$(EXEEXT)
 cpp: $(BUILD_DIR)/nes-native-cpp$(EXEEXT) $(BUILD_DIR)/nes-rom-build-cpp$(EXEEXT)
+disasm-native: $(BUILD_DIR)/nes-disasm-c$(EXEEXT) $(BUILD_DIR)/nes-disasm-cpp$(EXEEXT)
 cli: $(BUILD_DIR)/nes-dev-env
 $(BUILD_DIR):
 	mkdir -p "$@"
@@ -26,6 +27,10 @@ $(BUILD_DIR)/nes-rom-build-c$(EXEEXT): analysis/nes_rom_build.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) "$<" -o "$@"
 $(BUILD_DIR)/nes-rom-build-cpp$(EXEEXT): analysis/nes_rom_build.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) "$<" -o "$@"
+$(BUILD_DIR)/nes-disasm-c$(EXEEXT): analysis/nes_disasm_native.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) "$<" -o "$@"
+$(BUILD_DIR)/nes-disasm-cpp$(EXEEXT): analysis/nes_disasm_native.cpp analysis/nes_disasm_native.c | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) "$<" -o "$@"
 $(BUILD_DIR)/nes-dev-env: analysis/nes_dev_environment.py | $(BUILD_DIR)
 	@printf '%s\n' '#!/bin/sh' 'exec python3 analysis/nes_dev_environment.py "$$@"' > "$@"
 	chmod +x "$@"
@@ -34,7 +39,7 @@ $(BUILD_DIR)/nes-dev-env: analysis/nes_dev_environment.py | $(BUILD_DIR)
 # CI publishes the matching OS-specific binaries as downloadable artifacts.
 release-binaries: native
 	@echo "Native C/C++ terminal binaries are ready in $(BUILD_DIR)/"
-	@echo "Executables: nes-native-c$(EXEEXT), nes-native-cpp$(EXEEXT), nes-rom-build-c$(EXEEXT), nes-rom-build-cpp$(EXEEXT)"
+	@echo "Executables: nes-native-c$(EXEEXT), nes-native-cpp$(EXEEXT), nes-rom-build-c$(EXEEXT), nes-rom-build-cpp$(EXEEXT), nes-disasm-c$(EXEEXT), nes-disasm-cpp$(EXEEXT)"
 
 test-python:
 	python3 -m py_compile analysis/nes_inspect.py analysis/nes_disasm.py analysis/nes_workbench.py analysis/nes_dev_environment.py analysis/nes_circuit.py analysis/nes_advanced.py analysis/nes_rom_build.py examples/create_minimal_rom.py examples/inspect_existing.py
@@ -43,12 +48,15 @@ test-native: native
 	@set -eu; mkdir -p "$(BUILD_DIR)/test-output"; python3 -c "from pathlib import Path; Path('$(BUILD_DIR)/synthetic.nes').write_bytes(b'NES\\x1a'+bytes([1,1])+bytes(10)+bytes(16384+8192))"; \
 	"$(BUILD_DIR)/nes-native-c$(EXEEXT)" --out-dir "$(BUILD_DIR)/test-output/c" "$(BUILD_DIR)/synthetic.nes"; \
 	"$(BUILD_DIR)/nes-native-cpp$(EXEEXT)" --out-dir "$(BUILD_DIR)/test-output/cpp" "$(BUILD_DIR)/synthetic.nes"; \
+	"$(BUILD_DIR)/nes-disasm-c$(EXEEXT)" --out-dir "$(BUILD_DIR)/test-output/disasm-c" "$(BUILD_DIR)/synthetic.nes"; \
+	"$(BUILD_DIR)/nes-disasm-cpp$(EXEEXT)" --out-dir "$(BUILD_DIR)/test-output/disasm-cpp" "$(BUILD_DIR)/synthetic.nes"; \
 	"$(BUILD_DIR)/nes-rom-build-c$(EXEEXT)" --input "$(BUILD_DIR)/synthetic.nes" --output "$(BUILD_DIR)/test-output/c-patched.nes" --patch 16 00 01; \
 	"$(BUILD_DIR)/nes-rom-build-cpp$(EXEEXT)" --input "$(BUILD_DIR)/synthetic.nes" --output "$(BUILD_DIR)/test-output/cpp-patched.nes" --patch 16 00 02; \
 	test "$$(wc -c < "$(BUILD_DIR)/synthetic.nes")" = "$$(wc -c < "$(BUILD_DIR)/test-output/c-patched.nes")"; \
 	test "$$(od -An -tx1 -j16 -N1 "$(BUILD_DIR)/test-output/c-patched.nes" | tr -d ' \\n')" = "01"; \
 	test "$$(od -An -tx1 -j16 -N1 "$(BUILD_DIR)/test-output/cpp-patched.nes" | tr -d ' \\n')" = "02"; \
-	test -s "$(BUILD_DIR)/test-output/c/synthetic.nes/summary.md"; test -s "$(BUILD_DIR)/test-output/cpp/synthetic/summary.md"
+	test -s "$(BUILD_DIR)/test-output/c/synthetic.nes/summary.md"; test -s "$(BUILD_DIR)/test-output/cpp/synthetic/summary.md"; \
+	test -s "$(BUILD_DIR)/test-output/disasm-c/synthetic-native/disassembly.asm"; test -s "$(BUILD_DIR)/test-output/disasm-cpp/synthetic-native/disassembly.asm"
 test-cli: cli
 	$(BUILD_DIR)/nes-dev-env --help >/dev/null
 test: test-python test-native test-cli
