@@ -1,5 +1,4 @@
 // Native fixed-length NES ROM patch builder. C++17, no third-party dependencies.
-#include <algorithm>
 #include <cerrno>
 #include <cstdint>
 #include <cstdio>
@@ -55,7 +54,7 @@ int main(int argc,char**argv) {
     }
     if(input.empty()||output.empty()){std::cerr<<"input and output are required\n";return 2;}
     std::error_code ec;
-    if(fs::absolute(input,ec)==fs::absolute(output,ec)){std::cerr<<"input and output paths must differ\n";return 2;}
+    if(fs::absolute(input,ec)==fs::absolute(output,ec) || (fs::exists(output,ec)&&fs::equivalent(input,output,ec))){std::cerr<<"input and output paths must differ\n";return 2;}
     std::vector<std::uint8_t> data; if(!read_all(input,data))return 1;
     if(data.size()<16||data[0]!='N'||data[1]!='E'||data[2]!='S'||data[3]!=0x1a){std::cerr<<"invalid or truncated iNES header\n";return 1;}
     for(std::size_t i=0;i<patches.size();++i) {
