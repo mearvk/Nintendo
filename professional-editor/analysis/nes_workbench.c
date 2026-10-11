@@ -1,0 +1,2 @@
+#include "nes_native_analysis_core.h"
+int main(int argc,char **argv){const char*out="native-analysis-output";int i,n=0,bad=0;for(i=1;i<argc;i++){if(!strcmp(argv[i],"--help")||!strcmp(argv[i],"-h")){puts("Usage: nes-workbench-c [--out-dir DIR] ROM.nes ...");return 0;}if(!strcmp(argv[i],"--out-dir")&&i+1<argc){out=argv[++i];continue;}if(argv[i][0]=='-'){fprintf(stderr,"unknown option: %s\\n",argv[i]);return 2;}n++;bad+=nes_analyze_file(argv[i],out);}if(!n){fprintf(stderr,"Usage: %s [--out-dir DIR] ROM.nes ...\\n",argv[0]);return 2;}return bad?1:0;}
