@@ -59,6 +59,13 @@ class AdvancedAnalysisTests(unittest.TestCase):
         self.assertTrue(result["input_replay"]["supported"])
         self.assertFalse(result["stepping"]["supported"])
 
+    def test_mapper_trace_tracks_uxrom_bank_write(self):
+        state = nes_advanced.mapper_trace_state(2, 65536, 8192, [
+            {"event_index": 3, "address": "0x8000", "value": "0x02", "pc": "0x8123"}
+        ])
+        self.assertEqual(state["registers"]["selected_prg_bank"], 2)
+        self.assertEqual(state["observed_write_count"], 1)
+
     def test_palette_scene_requires_snapshot(self):
         self.assertFalse(nes_advanced.palette_scene_snapshot([], [], [])["supported"])
         scene = nes_advanced.palette_scene_snapshot([1]*960, [0]*64, list(range(32)))
