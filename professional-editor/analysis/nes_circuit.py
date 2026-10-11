@@ -57,10 +57,19 @@ def analyze_circuit(instructions, trace=None, max_nodes=12000):
             edges.append({"from": src, "to": dst, "kind": kind, "confidence": confidence})
     for idx, ins in enumerate(items):
         m = ins.get("mnemonic", "")
-        nxt = idx + 1 if idx + 1 < len(items) else None
+        nxt = None
+        if idx + 1 < len(items):
+            following = items[idx + 1]
+            current_addr = _cpu(ins)
+            following_addr = _cpu(following)
+            contiguous = current_addr is not None and following_addr == ((current_addr + int(ins.get("size", 1))) & 0xFFFF)
+            if contiguous and following.get("bank") == ins.get("bank"):
+                nxt = idx + 1
         target = _target(ins)
         candidates = by_cpu.get(target, []) if target is not None else []
-        target_idx = candidates[0] if candidates else None
+        # Prefer same-bank targets for relative branches and same-window calls.
+        same_bank = [j for j in candidates if items[j].get("bank") == ins.get("bank")]
+        target_idx = (same_bank or candidates)[0] if (same_bank or candidates) else None
         if m in TERMINATORS or ins.get("flow") == "return" or m == ".byte":
             continue
         if m in CONDITIONAL or ins.get("flow") == "conditional_branch":
@@ -95,7 +104,7 @@ def analyze_circuit(instructions, trace=None, max_nodes=12000):
         m = ins.get("mnemonic", "")
         node_records.append({
             "id": i, "address": ins.get("cpu_address_candidate"),
-            "file_offset": ins.get("file_offset"), "instruction": m,
+            "file_offset": ins.get("file_offset"), "bank": ins.get("bank"), "instruction": m,
             "operand": ins.get("operand", ""), "bytes": ins.get("bytes", []),
             "role_candidates": (["state-write-or-side-effect"] if m in WRITES else []) +
                                (["state-read-or-condition"] if m in READS else []) +
