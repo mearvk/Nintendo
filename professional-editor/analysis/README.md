@@ -1,6 +1,6 @@
 # ROM Analysis Tools
 
-The dependency-free Python 3.10+ tools provide the feature-complete analysis, circuit/action evidence, trace reporting, per-title workspace generation, and JSON manifest round-trip workflow. Native C99 and C++17 counterparts are included for header inspection and fixed-length ROM patching; see [NATIVE-BUILD.md](NATIVE-BUILD.md) for the current native coverage boundary.
+The dependency-free Python 3.10+ tools provide the feature-complete analysis, circuit/action evidence, trace reporting, per-title workspace generation, and JSON manifest round-trip workflow. Native C99 and C++17 counterparts are included for header inspection, fixed-length ROM patching, and conservative linear-sweep 6502 disassembly; see [NATIVE-BUILD.md](NATIVE-BUILD.md) for the current native coverage boundary.
 
 ## Build
 
@@ -12,9 +12,9 @@ make test
 make dev-env-help
 ```
 
-Run `build/nes-native-c ROM.nes` or `build/nes-native-cpp ROM.nes` for native header inspection. Native patch builders are `build/nes-rom-build-c` and `build/nes-rom-build-cpp`. CMake is also supported via `cmake -S . -B build-cmake && cmake --build build-cmake`.
+Run `build/nes-native-c ROM.nes` or `build/nes-native-cpp ROM.nes` for native header inspection. Native patch builders are `build/nes-rom-build-c` and `build/nes-rom-build-cpp`. Native disassemblers are `build/nes-disasm-c` and `build/nes-disasm-cpp`. CMake is also supported via `cmake -S . -B build-cmake && cmake --build build-cmake`.
 
-## Native fixed-length edits
+## Native disassembly\n\n```sh\nbuild/nes-disasm-c --out-dir ./analysis-output game.nes\nbuild/nes-disasm-cpp --out-dir ./analysis-output game.nes\n```\n\nThese produce a title-specific summary and `disassembly.asm`. Linear-sweep disassembly is only a hypothesis; mapper-aware control-flow analysis and circuit/action evidence remain in the Python workbench.\n\n## Native fixed-length edits
 
 ```sh
 build/nes-rom-build-c --input original.nes --output modified.nes --patch 0x4010 00 FF
