@@ -229,8 +229,8 @@ def palette_scene_snapshot(nametable, attributes, palette, chr_data=None, width=
             if chr_data is not None and len(chr_data) >= (tile + 1) * 16:
                 pattern = chr_data[tile * 16:(tile + 1) * 16]
                 pixel = ((pattern[0] >> 7) & 1) | (((pattern[8] >> 7) & 1) << 1)
-            color_slot = 0 if tile == 0 or pixel == 0 else subpalette * 4 + pixel
-            color_index = (pal[color_slot] & 0x3F) if pixel is not None or tile == 0 else None
+            color_slot = (0 if pixel == 0 else subpalette * 4 + pixel) if pixel is not None else subpalette * 4 + 1
+            color_index = (pal[color_slot] & 0x3F) if pixel is not None else None
             row.append({"tile": tile, "subpalette": subpalette, "palette_slot": color_slot,
                         "top_left_pixel_value": pixel, "color_index": color_index,
                         "rgb": NES_PALETTE_RGB[color_index] if color_index is not None else None})
