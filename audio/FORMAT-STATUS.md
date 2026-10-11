@@ -1,10 +1,9 @@
-# Audio Feature Status
+# Audio format status
 
-| Feature | Status | Required evidence |
+| Capability | Status | Notes |
 |---|---|---|
-| NES APU register-write log parser | Planned | Versioned format, bounds tests, synthetic records |
-| Channel-state visualization | Planned | Documented register semantics and expected-state tests |
-| Waveform export | Planned | Sample format, sample rate, deterministic tests |
-| Emulator audio trace adapter | Planned | Emulator/version-specific adapter and fixture traces |
+| APU register-write CSV validation | Implemented | nes_apu_log.py; validates cycle/address/value and emits JSON |
+| Waveform synthesis | Not implemented | No APU emulation or sample reconstruction |
+| Trace adapters | Planned | Must document emulator and trace schema |
 
-Keep recorded data separate from synthesized approximations. Do not label features implemented until code and tests are present.
+Input columns are cycle,address,value; integers may be decimal or 0x-prefixed. Cycles must be nonnegative and nondecreasing. Accepted registers are $4000-$4013, $4015, and $4017; $4014 is OAM DMA, not an APU register.
