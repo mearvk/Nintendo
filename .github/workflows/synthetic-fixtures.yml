@@ -1,0 +1,33 @@
+name: Synthetic Fixture Tests
+
+on:
+  push:
+    paths:
+      - "fixtures/**"
+      - "tests/**"
+      - ".github/workflows/synthetic-fixtures.yml"
+  pull_request:
+    paths:
+      - "fixtures/**"
+      - "tests/**"
+      - ".github/workflows/synthetic-fixtures.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-fixtures:
+    name: Python synthetic fixture tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Generate and validate synthetic ROM size
+        run: |
+          python fixtures/generate_synthetic_nes.py "$RUNNER_TEMP/synthetic.nes"
+          python -c "from pathlib import Path; p=Path('$RUNNER_TEMP/synthetic.nes'); d=p.read_bytes(); assert d[:4] == b'NES\\x1a'; assert len(d) == 16 + 0x4000 + 0x2000; print(f'Validated {len(d)} bytes')"
