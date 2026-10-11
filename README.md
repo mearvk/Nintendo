@@ -138,3 +138,6 @@ This is a first static-analysis foundation, not yet a full emulator or decompile
 
 
 Trace support also recognizes optional OAM, palette, and nametable snapshots from emulator-exported JSON/CSV events. OAM records expose sprite coordinates, tile IDs, palette bits, priority, and flips; palette bytes and the 32x30 nametable tile-index grid are preserved for analysis. Emulator-specific adapters are still needed for direct capture and attribute-table reconstruction.
+
+
+The current analyzer also includes a recursive reachability candidate for standard NROM images, seeded from interrupt vectors, and address hints for common PPU, OAM DMA, APU, and controller registers. These clues help prioritize code review but do not prove code/data boundaries or the semantic role of each routine.
