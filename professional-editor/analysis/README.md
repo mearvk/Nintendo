@@ -10,7 +10,7 @@ The dependency-free Python 3.10+ tools are read-only with respect to source ROMs
     python3 analysis/nes_workbench.py game.nes --trace emulator-trace.json
     python3 -m unittest analysis/test_nes_inspect.py analysis/test_nes_workbench.py
 
-The workbench outputs analysis.json, disassembly.txt, analysis-summary.md, the base inspector's report, and a grayscale PGM tile sheet when CHR-ROM is present. JSON traces can be an array of event objects or an object with an events array; CSV traces need a header row. Supported useful fields include frame, pc, a, x, y, sp, p, input, address, value, event, and scanline.
+The workbench outputs analysis.json, disassembly.txt, analysis-summary.md, the base inspector report, and grayscale PGM/PNG tile sheets when CHR-ROM is present. If trace events include an oam field containing 256 byte values (or a 512-character hexadecimal string), the tool extracts 64 sprite records per snapshot and compares adjacent snapshots for changed sprites. JSON traces can be an array of event objects or an object with an events array; CSV traces need a header row. Supported useful fields include frame, pc, a, x, y, sp, p, input, address, value, event, and scanline.
 
 ## What is implemented
 
