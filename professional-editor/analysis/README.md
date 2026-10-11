@@ -23,9 +23,9 @@ Equivalent Make target:
 
     make dev-env ROM=/path/to/game.nes TITLE="Super Mario Bros" OUT=~/rom-projects TRACE=emulator-trace.json
 
-The default output is development-environment-TITLE/ under the current directory. The title can be supplied explicitly or inferred from the ROM filename. Existing output is preserved unless --force is passed to the Python command. The generated workspace includes title description, sprite/tile maps and catalog, gameplay hypotheses, state and memory-map notebooks, disassembly, mapper/register reports, optional emulator traces, JSON/Markdown reports, and a local HTML dashboard. The original ROM is never copied or modified.
+The default output is development-environment-TITLE/ under the current directory. The title can be supplied explicitly or inferred from the ROM filename. Existing output is preserved unless --force is passed to the Python command. The generated workspace includes title description, sprite/tile maps and catalog, gameplay hypotheses, state and memory-map notebooks, disassembly, mapper/register reports, a circuit graph, action assessment, optional emulator traces, JSON/Markdown reports, and a local HTML dashboard. The original ROM is never copied or modified.
 
-See TERMINAL-ENVIRONMENT.md for the full directory layout and interpretation limits.
+See TERMINAL-ENVIRONMENT.md for the full directory layout and interpretation limits. See CIRCUIT-AND-ACTION-ANALYSIS.md for graph semantics and the evidence framework for assessing right action.
 
 ## Existing Python commands
 
@@ -33,7 +33,7 @@ See TERMINAL-ENVIRONMENT.md for the full directory layout and interpretation lim
     python3 analysis/nes_workbench.py /path/to/game.nes
     python3 analysis/nes_workbench.py game-a.nes game-b.nes --out-dir /path/to/private-analysis
     python3 analysis/nes_workbench.py game.nes --trace emulator-trace.json
-    python3 -m unittest analysis/test_nes_inspect.py analysis/test_nes_workbench.py analysis/test_nes_dev_environment.py
+    python3 -m unittest analysis/test_nes_inspect.py analysis/test_nes_workbench.py analysis/test_nes_circuit.py analysis/test_nes_dev_environment.py
 
 The Python workbench outputs analysis.json, disassembly.txt, analysis-summary.md, a base inspector report, and grayscale PGM/PNG tile sheets when CHR-ROM is present. If trace events include OAM data, it extracts sprite records and compares adjacent snapshots. Palette and nametable fields are also summarized. JSON traces can be an array or an object with an events array; CSV traces need a header row.
 
@@ -43,7 +43,7 @@ The Python workbench outputs analysis.json, disassembly.txt, analysis-summary.md
 - Candidate PRG bank windows for NROM and basic MMC1/UxROM/CNROM/MMC3 layouts.
 - Conservative official 6502/2A03 linear disassembly; unknown/unofficial opcodes stay as one-byte directives.
 - Recursive NROM reachability candidates, NES hardware-register hints, CHR tile counts and duplicate-pattern detection.
-- Branch/call/jump/store/immediate candidates, evidence offsets, confidence labels, and gameplay/state hypotheses.
+- Branch/call/jump/store/immediate candidates, evidence offsets, confidence labels, and gameplay/state hypotheses.\n- Circuit-style control-flow graph with candidate order, branch paths, loop/repetition signals, paths to return candidates, and evidence-led action assessments.
 - Aggregation of supplied emulator trace JSON/CSV into hot-PC and memory-write summaries.
 
 ## Limits
