@@ -27,7 +27,7 @@ Example JSON:
 1. Container validation: iNES/NES 2.0 metadata, trainer, declared/available regions and warnings.
 2. PRG bank views: explicit candidate file offsets and CPU address windows. NROM, MMC1, UxROM/CNROM, and MMC3 receive basic bank-window handling; this is not a stateful mapper emulator.
 3. 6502 disassembly: official opcodes decode into instruction candidates; unsupported/unofficial opcodes remain one-byte directives so offsets stay aligned. A linear sweep may mistake embedded data for instructions.
-4. Graphics pattern analysis: raw CHR tile counts, unique patterns, exact duplicate tile patterns, and a browser-viewable grayscale PNG tile sheet. Optional emulator traces can include 256-byte OAM snapshots to extract 64 sprite records per snapshot (position, tile index, palette, priority, and flips) and compare changes between snapshots. A true palette-aware scene viewer still needs runtime palette, nametable, and attribute evidence.
+4. Graphics pattern analysis: raw CHR tile counts, unique patterns, exact duplicate tile patterns, and a browser-viewable grayscale PNG tile sheet. Optional emulator traces can include 256-byte OAM snapshots to extract 64 sprite records per snapshot (position, tile index, palette, priority, and flips), 32-byte palette snapshots, and 960-byte nametable tile grids; adjacent OAM snapshots are compared for sprite changes. Attribute-table bytes and a fully palette-aware rendered scene still need additional capture/interpretation.
 5. Control-flow candidates: branch, call, jump, store and immediate-constant listings, with file offsets and CPU-address candidates.
 6. Gameplay hypotheses and traces: low-confidence static candidates plus hot PCs and frequent memory writes from a supplied trace.
 
