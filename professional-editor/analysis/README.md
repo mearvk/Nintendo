@@ -1,8 +1,17 @@
 # ROM Analysis Tools
 
-The dependency-free Python 3.10+ tools are read-only with respect to source ROMs.
+The dependency-free Python 3.10+ tools are the feature-complete read-only workbench. Native C99 and C++17 starter tools are also available; see NATIVE-BUILD.md.
 
-## Commands
+## Native build
+
+From the professional-editor directory:
+
+    make
+    make test
+
+Run build/nes-native-c ROM.nes or build/nes-native-cpp ROM.nes. CMake is also supported via cmake -S . -B build-cmake && cmake --build build-cmake. Native tools currently report iNES/NES 2.0 header metadata and mapper/PRG/CHR sizes; they are not yet feature-equivalent to the Python pipeline.
+
+## Python commands
 
     python3 analysis/nes_inspect.py /path/to/game.nes
     python3 analysis/nes_workbench.py /path/to/game.nes
@@ -10,9 +19,9 @@ The dependency-free Python 3.10+ tools are read-only with respect to source ROMs
     python3 analysis/nes_workbench.py game.nes --trace emulator-trace.json
     python3 -m unittest analysis/test_nes_inspect.py analysis/test_nes_workbench.py
 
-The workbench outputs index.html (a local browser dashboard), analysis.json, disassembly.txt, analysis-summary.md, the base inspector report, and grayscale PGM/PNG tile sheets when CHR-ROM is present. If trace events include an oam field containing 256 byte values (or a 512-character hexadecimal string), the tool extracts 64 sprite records per snapshot and compares adjacent snapshots for changed sprites. Optional palette (32 bytes) and nametable (960 bytes) fields are also summarized. JSON traces can be an array of event objects or an object with an events array; CSV traces need a header row. Supported useful fields include frame, pc, a, x, y, sp, p, input, address, value, event, and scanline.
+The Python workbench outputs index.html (a local browser dashboard), analysis.json, disassembly.txt, analysis-summary.md, the base inspector report, and grayscale PGM/PNG tile sheets when CHR-ROM is present. If trace events include an oam field containing 256 byte values (or a 512-character hexadecimal string), the tool extracts 64 sprite records per snapshot and compares adjacent snapshots for changed sprites. Optional palette (32 bytes) and nametable (960 bytes) fields are also summarized. JSON traces can be an array of event objects or an object with an events array; CSV traces need a header row. Supported useful fields include frame, pc, a, x, y, sp, p, input, address, value, event, and scanline.
 
-## What is implemented
+## What the Python pipeline implements
 
 - iNES/NES 2.0 container and region metadata inspection.
 - Conservative candidate PRG bank windows for NROM and basic MMC1/UxROM/CNROM/MMC3 layouts.
@@ -24,4 +33,4 @@ The workbench outputs index.html (a local browser dashboard), analysis.json, dis
 
 ## Limits
 
-No input ROM is modified. The tools do not launch an emulator. Mapper state is not emulated, control-flow/code-data boundaries are not proven, and a raw CHR tile sheet is not a complete sprite or screen reconstruction. See ../docs/ROM-ANALYSIS-WORKBENCH.md for next layers and interpretation guidance.
+No input ROM is modified. The Python tools do not launch an emulator. Mapper state is not emulated, control-flow/code-data boundaries are not proven, and a raw CHR tile sheet is not a complete sprite or screen reconstruction. See ../docs/ROM-ANALYSIS-WORKBENCH.md for next layers and interpretation guidance.
