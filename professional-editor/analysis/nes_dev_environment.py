@@ -6,6 +6,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import nes_workbench
+import nes_advanced
 
 def slugify(value):
     return re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip(".-_")[:96] or "Untitled"
@@ -14,7 +15,7 @@ def write_text(path, content):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content.rstrip() + "\n", encoding="utf-8")
 
-def generate(rom, output_root, title=None, trace=None, force=False):
+def generate(rom, output_root, title=None, trace=None, force=False, rules_path=None):
     rom = Path(rom).expanduser().resolve()
     if not rom.is_file():
         raise FileNotFoundError(f"ROM does not exist or is not a file: {rom}")
@@ -38,12 +39,21 @@ def generate(rom, output_root, title=None, trace=None, force=False):
         analysis = json.loads((src / "analysis.json").read_text(encoding="utf-8"))
         container = analysis.get("container", {})
         header = container.get("header", {})
+        instructions = analysis.get("disassembly", {}).get("instructions", [])
+        rules = nes_advanced.load_rules(rules_path) if rules_path else nes_advanced.rules_template(title)
+        rules.setdefault("title", title)
+        advanced = nes_advanced.analyze_advanced(
+            header.get("mapper"), int(header.get("prg_rom_bytes_declared") or 0),
+            instructions, analysis.get("trace_analysis"), rules)
+        analysis["advanced_analysis"] = advanced
+        write_text(src / "analysis.json", json.dumps(analysis, indent=2))
+        write_text(src / "advanced-analysis.json", json.dumps(advanced, indent=2))
         for folder in ("source-rom", "sprites", "game-logic", "codes/disassembly", "codes/circuit", "traces", "reports"):
             (target / folder).mkdir(parents=True, exist_ok=True)
         shutil.copy2(src / "report.json", target / "source-rom/rom-metadata.json")
         for source, dest in (("analysis.json","reports/analysis.json"), ("analysis-summary.md","reports/analysis-summary.md"),
                              ("index.html","reports/analysis.html"), ("disassembly.txt","codes/disassembly/linear-sweep.txt"),
-                             ("analysis.json","codes/mapper-analysis.json"), ("circuit-analysis.json","codes/circuit/circuit-analysis.json"), ("circuit.dot","codes/circuit/circuit.dot")):
+                             ("analysis.json","codes/mapper-analysis.json"), ("circuit-analysis.json","codes/circuit/circuit-analysis.json"), ("circuit.dot","codes/circuit/circuit.dot"), ("advanced-analysis.json","codes/advanced-analysis.json")):
             shutil.copy2(src / source, target / dest)
         for name in ("chr-tiles.png", "chr-tiles.pgm"):
             if (src / name).is_file():
@@ -99,7 +109,10 @@ def generate(rom, output_root, title=None, trace=None, force=False):
             "See ../codes/circuit/circuit-analysis.json for the node/edge graph and ../codes/circuit/circuit.dot for Graphviz rendering."]
         write_text(target / "game-logic/action-assessment.md", "\n".join(action_lines))
         write_text(target / "game-logic/state-and-events.md", "# State and Events Notebook\n\n| State/event | Evidence | Trigger | Effect | Confidence |\n|---|---|---|---|---|\n| TODO | TODO | TODO | TODO | unverified |")
-        write_text(target / "game-logic/memory-map.md", "# Memory Map Investigation\n\nRecord address, width, read/write sites, observed values, scene, evidence, and confidence. Game-specific RAM labels require validation.")
+        write_text(target / "game-logic/memory-map.md", "# Memory Map Investigation\n\nRecord address, width, read/write sites, observed values, scene, evidence, and confidence. Game-specific RAM labels require validation.\n\n## Automated address classification\n\nSee ../codes/advanced-analysis.json for candidate RAM, PPU, APU, controller, expansion, save-RAM, and mapper-controlled address regions. Classification is address-based; cartridge-specific semantics still require evidence.")
+        write_text(target / "game-logic/game-rules.json", json.dumps(rules, indent=2))
+        write_text(target / "game-logic/rules-evaluation.json", json.dumps(advanced.get("rules_evaluation", {}), indent=2))
+        write_text(target / "game-logic/rules-evaluation.md", "# Declared Game Rules — Evidence Check\n\nEdit game-rules.json to record the verified objective, constraints, action addresses, required/allowed/forbidden labels, and ordering expectations. Then regenerate the workspace with --rules path/to/game-rules.json to evaluate that ruleset.\n\nStatuses are consistent-with-declared-rule, conflicts-with-declared-rule, or unresolved. They report consistency with the declared rule and supplied evidence—not proof of complete game behavior.\n\n" + "\n".join(f"- **{x.get('address') or 'unknown'} {x.get('label','')}** — {x.get('status','unresolved')}: {'; '.join(x.get('evidence', []))}" for x in advanced.get("rules_evaluation", {}).get("checks", [])))
         regs = analysis.get("hardware_register_candidates", [])
         write_text(target / "codes/hardware-registers.md", "# NES Hardware Register Candidates\n\n" + ("\n".join(f"- {x.get('address')} {x.get('register')}: {x.get('mnemonic')} at file offset {x.get('file_offset')} ({x.get('confidence')})" for x in regs) or "No candidates emitted.") + "\n\nConfirm instruction context and mapper.")
         if trace:
@@ -128,17 +141,18 @@ def main(argv=None):
     p.add_argument("--title", help="friendly title; defaults to ROM filename")
     p.add_argument("--output-root", type=Path, default=Path.cwd(), help="parent directory for output")
     p.add_argument("--trace", type=Path, help="optional emulator-exported JSON or CSV trace")
+    p.add_argument("--rules", type=Path, help="optional title-specific game-rules JSON to evaluate and copy")
     p.add_argument("--force", action="store_true", help="replace the matching generated workspace")
     a = p.parse_args(argv)
     try:
-        out = generate(a.rom, a.output_root, a.title, a.trace, a.force)
+        out = generate(a.rom, a.output_root, a.title, a.trace, a.force, a.rules)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
     print(f"Workspace created: {out}")
     for label, path in [("Title description",out/"title-description.md"),("Sprite catalog",out/"sprites/sprite-catalog.csv"),
                         ("Game logic",out/"game-logic/gameplay-hypotheses.md"),("Circuit graph",out/"codes/circuit/circuit.dot"),("Action assessment",out/"game-logic/action-assessment.md"),("Disassembly",out/"codes/disassembly/linear-sweep.txt"),
-                        ("HTML dashboard",out/"reports/analysis.html")]:
+                        ("HTML dashboard",out/"reports/analysis.html"),("Advanced analysis",out/"codes/advanced-analysis.json"),("Game rules",out/"game-logic/game-rules.json")]:
         print(f"{label}: {path}")
     print("Static-analysis findings are hypotheses until validated with runtime evidence.")
     return 0
