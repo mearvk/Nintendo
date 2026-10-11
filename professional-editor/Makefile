@@ -4,11 +4,12 @@ CXX ?= c++
 CFLAGS ?= -O2 -std=c99 -Wall -Wextra -Wpedantic
 CXXFLAGS ?= -O2 -std=c++17 -Wall -Wextra -Wpedantic
 BUILD_DIR ?= build
-.PHONY: all native c cpp cli test test-python test-native test-cli dev-env dev-env-help rom-build-help rom-project rom-build clean help
+.PHONY: all native c cpp disasm-native cli test test-python test-native test-cli dev-env dev-env-help rom-build-help rom-project rom-build clean help
 all: native cli
-native: c cpp
+native: c cpp disasm-native
 c: $(BUILD_DIR)/nes-native-c $(BUILD_DIR)/nes-rom-build-c
 cpp: $(BUILD_DIR)/nes-native-cpp $(BUILD_DIR)/nes-rom-build-cpp
+disasm-native: $(BUILD_DIR)/nes-disasm-c $(BUILD_DIR)/nes-disasm-cpp
 cli: $(BUILD_DIR)/nes-dev-env
 $(BUILD_DIR):
 	mkdir -p "$@"
@@ -20,6 +21,10 @@ $(BUILD_DIR)/nes-rom-build-c: analysis/nes_rom_build.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) "$<" -o "$@"
 $(BUILD_DIR)/nes-rom-build-cpp: analysis/nes_rom_build.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) "$<" -o "$@"
+$(BUILD_DIR)/nes-disasm-c: analysis/nes_disasm_native.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) "$<" -o "$@"
+$(BUILD_DIR)/nes-disasm-cpp: analysis/nes_disasm_native.cpp analysis/nes_disasm_native.c | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) "$<" -o "$@"
 $(BUILD_DIR)/nes-dev-env: analysis/nes_dev_environment.py | $(BUILD_DIR)
 	@printf '%s\n' '#!/bin/sh' 'exec python3 analysis/nes_dev_environment.py "$$@"' > "$@"
 	chmod +x "$@"
@@ -30,12 +35,14 @@ test-native: native
 	@set -eu; mkdir -p "$(BUILD_DIR)/test-output"; python3 -c "from pathlib import Path; Path('$(BUILD_DIR)/synthetic.nes').write_bytes(b'NES\\x1a'+bytes([1,1])+bytes(10)+bytes(16384+8192))"; \
 	"$(BUILD_DIR)/nes-native-c" --out-dir "$(BUILD_DIR)/test-output/c" "$(BUILD_DIR)/synthetic.nes"; \
 	"$(BUILD_DIR)/nes-native-cpp" --out-dir "$(BUILD_DIR)/test-output/cpp" "$(BUILD_DIR)/synthetic.nes"; \
+	"$(BUILD_DIR)/nes-disasm-c" --out-dir "$(BUILD_DIR)/test-output/disasm-c" "$(BUILD_DIR)/synthetic.nes"; \
+	"$(BUILD_DIR)/nes-disasm-cpp" --out-dir "$(BUILD_DIR)/test-output/disasm-cpp" "$(BUILD_DIR)/synthetic.nes"; \
 	"$(BUILD_DIR)/nes-rom-build-c" --input "$(BUILD_DIR)/synthetic.nes" --output "$(BUILD_DIR)/test-output/c-patched.nes" --patch 16 00 01; \
 	"$(BUILD_DIR)/nes-rom-build-cpp" --input "$(BUILD_DIR)/synthetic.nes" --output "$(BUILD_DIR)/test-output/cpp-patched.nes" --patch 16 00 02; \
 	test "$$(wc -c < "$(BUILD_DIR)/synthetic.nes")" = "$$(wc -c < "$(BUILD_DIR)/test-output/c-patched.nes")"; \
 	test "$$(od -An -tx1 -j16 -N1 "$(BUILD_DIR)/test-output/c-patched.nes" | tr -d ' \\n')" = "01"; \
 	test "$$(od -An -tx1 -j16 -N1 "$(BUILD_DIR)/test-output/cpp-patched.nes" | tr -d ' \\n')" = "02"; \
-	test -s "$(BUILD_DIR)/test-output/c/synthetic.nes/summary.md"; test -s "$(BUILD_DIR)/test-output/cpp/synthetic/summary.md"
+	test -s "$(BUILD_DIR)/test-output/c/synthetic.nes/summary.md"; test -s "$(BUILD_DIR)/test-output/cpp/synthetic/summary.md"; test -s "$(BUILD_DIR)/test-output/disasm-c/synthetic-native/disassembly.asm"; test -s "$(BUILD_DIR)/test-output/disasm-cpp/synthetic-native/disassembly.asm"
 test-cli: cli
 	$(BUILD_DIR)/nes-dev-env --help >/dev/null
 test: test-python test-native test-cli
