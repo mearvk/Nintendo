@@ -72,10 +72,13 @@ Each line is `HH=<glyph>` where `HH` is a hex byte and `<glyph>` is the single
 character (or token) it renders as. The editor builds both directions:
 glyph->byte for encoding, byte->glyph for decoding.
 
-## 4. The edit script (portable across all four implementations)
+## 4. The edit script (shared byte-tool grammar)
 
-All four implementations (C, C++, SLeeLa, Java) accept the same line-oriented
-**edit script**, so an edit is reproducible regardless of language:
+The C, C++, and Java byte-editing tools accept the same line-oriented **edit
+script**, so their byte operations can be compared and verified. The SLeeLa
+component is a model/validation layer: it checks a proposed edit plan against
+the slot invariant and hands approved edits to a byte tool; it is not a fourth
+raw-byte editor.
 
 ```
 # comments allowed
