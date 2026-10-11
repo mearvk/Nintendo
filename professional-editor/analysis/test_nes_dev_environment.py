@@ -23,7 +23,7 @@ class DevEnvironmentTests(unittest.TestCase):
             for rel in ["README.md","title-description.md","manifest.json","source-rom/rom-metadata.json",
                         "sprites/sprite-map.png","sprites/background-tiles.png","sprites/sprite-catalog.csv",
                         "game-logic/overview.md","game-logic/gameplay-hypotheses.md","game-logic/state-and-events.md",
-                        "game-logic/memory-map.md","codes/disassembly/linear-sweep.txt","codes/mapper-analysis.json",
+                        "game-logic/memory-map.md","game-logic/action-assessment.md","codes/disassembly/linear-sweep.txt","codes/mapper-analysis.json",\n                        "codes/circuit/circuit-analysis.json","codes/circuit/circuit.dot",
                         "codes/hardware-registers.md","reports/analysis.json","reports/analysis.html"]:
                 self.assertTrue((out / rel).is_file(), rel)
             self.assertFalse(json.loads((out/"manifest.json").read_text())["input_rom_copied"])
