@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import nes_rom_build
+from analysis import nes_rom_build
 
 
 def make_rom(path):
