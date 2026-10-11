@@ -52,9 +52,10 @@ $(BUILD_DIR)/nes-dev-env: analysis/nes_dev_environment.py | $(BUILD_DIR)
 
 # Build all six native terminal tools for the current operating system.
 # CI publishes the matching OS-specific binaries as downloadable artifacts.
-release-binaries: native
+release-binaries: native analysis-native
 	@echo "Native C/C++ terminal binaries are ready in $(BUILD_DIR)/"
-	@echo "Executables: nes-native-c$(EXEEXT), nes-native-cpp$(EXEEXT), nes-rom-build-c$(EXEEXT), nes-rom-build-cpp$(EXEEXT), nes-disasm-c$(EXEEXT), nes-disasm-cpp$(EXEEXT)"
+	@echo "Core: nes-native-c$(EXEEXT), nes-native-cpp$(EXEEXT), nes-rom-build-c$(EXEEXT), nes-rom-build-cpp$(EXEEXT), nes-disasm-c$(EXEEXT), nes-disasm-cpp$(EXEEXT)"
+	@echo "Analysis: rom-manifest-c$(EXEEXT), rom-manifest-cpp$(EXEEXT), nes-chr-c$(EXEEXT), nes-chr-cpp$(EXEEXT), nes-apu-c$(EXEEXT), nes-apu-cpp$(EXEEXT)"
 
 test-python:
 	python3 -m py_compile analysis/nes_inspect.py analysis/nes_disasm.py analysis/nes_workbench.py analysis/nes_dev_environment.py analysis/nes_circuit.py analysis/nes_advanced.py analysis/nes_rom_build.py examples/create_minimal_rom.py examples/inspect_existing.py

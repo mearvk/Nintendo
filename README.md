@@ -45,13 +45,13 @@ The native disassemblers are **linear sweeps**, not mapper-aware execution or co
 
 From the repository root:
 
+On Linux/macOS, use Make; on Windows 10+, use the PowerShell + CMake route below.
+
 ```sh
 cd professional-editor
 
-# Build the native tools for the current operating system
+# Linux/macOS: build all native C/C++ tools and run tests
 make release-binaries
-
-# Run the available test suite
 make test
 
 # Inspect a ROM you are entitled to use (read-only)
@@ -76,13 +76,16 @@ See [examples](professional-editor/examples/README.md) for a synthetic ROM you c
 
 The [NES ROM Analysis Native Build workflow](.github/workflows/rom-analysis-native.yml) is configured to build and test on Linux, macOS, and Windows, and to publish OS-specific native-tool artifacts. The workflow configuration is not proof that a particular commit passed: check the Actions run for the exact commit before relying on its result.
 
-The native build currently packages six executables:
+The native build currently packages twelve executables (six core ROM tools and six ROM integrity/graphics/audio analysis tools):
 
 - `nes-native-c` and `nes-native-cpp` — header inspection.
 - `nes-rom-build-c` and `nes-rom-build-cpp` — reviewed fixed-length patching.
 - `nes-disasm-c` and `nes-disasm-cpp` — conservative linear-sweep disassembly.
+- `rom-manifest-c` and `rom-manifest-cpp` — SHA-256 ROM manifest creation and verification.
+- `nes-chr-c` and `nes-chr-cpp` — grayscale CHR-ROM tile-atlas export.
+- `nes-apu-c` and `nes-apu-cpp` — APU register-write log validation and JSON summaries.
 
-Build with Make or CMake; see [NATIVE-BUILD.md](professional-editor/analysis/NATIVE-BUILD.md) for details and known limitations.
+**Windows 10/11:** open PowerShell, enter `professional-editor`, and run `powershell -ExecutionPolicy Bypass -File .\\build-windows.ps1`. This uses CMake and a Visual C/C++ toolchain, not GNU Make. **macOS:** run `./build-macos.sh` from this directory. See [NATIVE-BUILD.md](professional-editor/analysis/NATIVE-BUILD.md) for details and known limitations.
 
 ## Safety and repository hygiene
 
