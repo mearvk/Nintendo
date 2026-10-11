@@ -75,7 +75,7 @@ test-native: native
 test-cli: cli
 	$(BUILD_DIR)/nes-dev-env --help >/dev/null
 test-analysis-native: analysis-native
-	python3 ../tests/test_native_tooling.py "$(BUILD_DIR)"
+	python3 ../scripts/native_tooling_smoke.py "$(BUILD_DIR)"
 test: test-python test-native test-analysis-native test-cli
 examples-help:
 	@cat examples/README.md
