@@ -121,3 +121,17 @@ Run from the professional-editor directory with Python 3.10+:
     python3 -m unittest analysis/test_nes_inspect.py
 
 See professional-editor/docs/ROM-ANALYSIS-WORKBENCH.md for the roadmap covering sprite and animation inference, mapper-aware 6502 disassembly, settings, game-state logic, control-flow analysis, and emulator trace correlation. Those advanced capabilities are not claimed by the first-pass tool yet. User-owned ROMs, saves, patches, and generated tile sheets are ignored by Git; do not commit game ROMs or extracted copyrighted assets.
+
+
+## NES ROM analysis workbench
+
+The first analysis pipeline is now available in professional-editor/analysis. It combines read-only container inspection, candidate PRG bank windows, conservative 6502/2A03 linear disassembly, raw CHR duplicate-pattern analysis, control-flow candidates, low-confidence gameplay/state hypotheses, and optional emulator trace aggregation. See [the workbench guide](professional-editor/docs/ROM-ANALYSIS-WORKBENCH.md).
+
+From professional-editor, run:
+
+    python3 analysis/nes_workbench.py /path/to/game.nes
+    python3 analysis/nes_workbench.py game-a.nes game-b.nes --out-dir /path/to/private-analysis
+    python3 analysis/nes_workbench.py game.nes --trace emulator-trace.json
+    python3 -m unittest analysis/test_nes_inspect.py analysis/test_nes_workbench.py
+
+This is a first static-analysis foundation, not yet a full emulator or decompiler. Linear disassembly may decode data as code; mapper bank views are approximate; and true sprite/scene reconstruction requires palette, nametable, attribute, OAM, and runtime evidence. Findings carry offsets and confidence notes. The ROM-free test workflow is defined in .github/workflows/nes-analysis.yml.
