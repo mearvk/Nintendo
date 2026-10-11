@@ -1,6 +1,6 @@
 # Native C and C++ ROM tools
 
-The Python workbench remains the feature-complete analysis and workspace pipeline. Native C99 and C++17 programs provide header inspection and an independently implemented fixed-length patch builder. Native parity is being expanded deliberately; these programs do not yet reproduce mapper-aware disassembly, circuit/action evidence, trace ingestion, graphics reports, the HTML dashboard, or Python's JSON project-manifest workflow.
+The Python workbench remains the feature-complete analysis and workspace pipeline. Native C99 and C++17 programs provide header inspection, fixed-length patch building, and a conservative linear-sweep 6502/2A03 disassembly report. The disassembler is not mapper-aware control-flow recovery and does not yet reproduce the circuit/action evidence engine, trace ingestion, full graphics reports, HTML dashboard, or Python's JSON project-manifest workflow.
 
 ## Build
 
@@ -15,11 +15,22 @@ Binaries:
 - `build/nes-native-cpp` — native header inspection.
 - `build/nes-rom-build-c` — native fixed-length patch builder.
 - `build/nes-rom-build-cpp` — native fixed-length patch builder.
+- `build/nes-disasm-c` — native C99 linear-sweep disassembler.
+- `build/nes-disasm-cpp` — C++17 build sharing the C-compatible disassembly core.
 
 CMake alternative:
 
     cmake -S . -B build-cmake
     cmake --build build-cmake --config Release
+
+## Native linear-sweep disassembly
+
+```sh
+build/nes-disasm-c --out-dir ./analysis-output game.nes
+build/nes-disasm-cpp --out-dir ./analysis-output game.nes
+```
+
+Each command creates a title-specific folder containing `summary.md` and `disassembly.asm`. It reports an iNES/NES 2.0 mapper candidate and walks available PRG bytes using recognized official 6502/2A03 opcodes; unsupported or unofficial opcodes are emitted as `.byte`. This is a linear sweep, not control-flow recovery. Code/data boundaries, mapper bank state, CPU addresses, and relative branch targets are hypotheses that require validation.
 
 ## Native round-trip patch command
 
