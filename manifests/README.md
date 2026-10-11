@@ -1,15 +1,12 @@
-# Metadata and Provenance Manifests
+# Metadata and provenance manifests
 
-Use machine-readable manifests for inventory and reproducible research. A manifest records metadata about a file; it should not contain ROM bytes.
+Create a sidecar without modifying the source image:
 
-## Recommended fields
+```sh
+python tools/rom_manifest.py create owned-or-authorized.nes manifests/local-image.json --title "My Dump" --platform NES --format iNES --provenance "Personal dump" --rights-status personal_dump
+python tools/rom_manifest.py verify manifests/local-image.json owned-or-authorized.nes
+```
 
-- `schema_version`
-- `title`, `platform`, `region`, `revision`, `format`
-- `relative_path` (local inventory only; do not expose private paths)
-- `size_bytes`, `sha256`
-- `provenance`, `rights_status`, `redistribution_allowed`
-- `analysis_tool`, `tool_version`, `analysis_timestamp`
-- `notes` and confidence level for inferred metadata
+The tool streams SHA-256 calculation, records byte size and UTC timestamp, and verifies both later. Rights default to unknown and redistribution is disabled. Only enable redistribution when documented rights support it; this tool is not legal advice. Do not commit private local paths or confidential acquisition details.
 
-Use explicit statuses such as `unknown`, `personal_dump`, `authorized`, and `redistribution_approved`. Unknown is not equivalent to permission. Avoid committing manifests that reveal private local directories.
+Recommended metadata includes schema version, title/platform/region/revision/format, size and SHA-256, provenance and rights status, redistribution flag, analysis tool/version/timestamp, notes, and confidence for inferred metadata. Unknown is not permission.

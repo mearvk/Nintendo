@@ -1,13 +1,10 @@
-# Graphics Format Status
+# Graphics format status
 
-This file tracks scope and implementation truth. Update it when actual code and tests land.
-
-| Format / feature | Status | Evidence required to mark implemented |
+| Capability | Status | Notes |
 |---|---|---|
-| NES 2-bitplane 8×8 pattern decode | Planned | Decoder, known synthetic vector, pixel-level expected output |
-| Palette visualization | Planned | Palette rules, test vectors, invalid-index behavior |
-| Nametable layout | Planned | Attribute-table decoding tests and documented assumptions |
-| Sprite/OAM inspection | Planned | Record parser, bounds tests, coordinate/attribute documentation |
-| Lossless encode/decode round trip | Planned | Byte or pixel parity tests with documented caveats |
+| NES CHR 2bpp tile atlas | Implemented | nes_chr_viewer.py; dependency-free grayscale PPM |
+| Palette-accurate rendering | Planned | Requires palette and nametable context |
+| Nametable viewer | Planned | Attribute-table and mirroring support needed |
+| Sprite/OAM viewer | Planned | Needs documented OAM or trace input |
 
-Do not label a feature implemented based solely on a design note or directory existing.
+The viewer supports conventional linear iNES/NES 2.0 CHR sizing, rejects exponent-sized ROMs and CHR-RAM-only images, validates bounds, and never modifies its input.
