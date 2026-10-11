@@ -1,143 +1,102 @@
 <h1 align="center">mearvk · Nintendo Studio</h1>
 
 <p align="center">
-  <strong>A professional, clean-room toolchain for reading and editing the text of Nintendo Entertainment System ROMs.</strong>
+  <strong>Original tools for NES ROM editing, analysis, and reproducible research.</strong>
 </p>
 
 <p align="center">
-  <em>Four languages. One format. Zero copyrighted content.</em>
+  <em>Work on ROM images you are entitled to use. Keep original images and generated assets local.</em>
 </p>
 
 ---
 
 ## Overview
 
-This repository is a **studio** — a disciplined home for original tooling that
-works with the public, documented **iNES** ROM format. Its centerpiece is the
-**Professional Editor**: a text-and-menu editor for NES ROM images, implemented
-four ways (C, C++, SLeeLa, Java) that all speak one shared edit-script grammar
-and produce byte-identical results.
+This repository brings together the **Professional Editor**, ROM-analysis workbench, strategy-analysis research tools, SLeeLa model layers, and text-only project workspaces. The editor's byte-changing operations are deliberately conservative: edits are explicit, length-bounded, and written to a separate output file.
 
-The studio is built around a simple, honest principle:
+The project includes C, C++, Java, and SLeeLa components, but their roles differ. C/C++/Java tools perform byte-oriented operations where implemented; SLeeLa models express validation and strategy. Do not assume every language implements every feature or produces identical artifacts unless a specific parity test says so.
 
-> **We ship tools, not ROMs.** Every line of code here is original. The editor
-> operates on a ROM image *you already own*; the repository stores none. The
-> work is clean-room reverse-engineering of a file format, nothing more.
+## Main areas
 
-## The toolchain
-
-| Component | What it is |
+| Area | Purpose |
 |---|---|
-| [`professional-editor/`](professional-editor/) | The NES ROM text/menu editor — **C, C++, SLeeLa, Java** |
-| [`professional-editor/docs/FORMAT.md`](professional-editor/docs/FORMAT.md) | The iNES container + the editing model |
-| [`professional-editor/docs/WORKFLOW.md`](professional-editor/docs/WORKFLOW.md) | A worked dump → script → apply → verify example |
+| [`professional-editor/`](professional-editor/) | Multi-language NES text/menu editor and ROM-analysis workbench |
+| [Editor format reference](professional-editor/docs/FORMAT.md) | iNES container layout, text slots, and edit-script grammar |
+| [Worked editing workflow](professional-editor/docs/WORKFLOW.md) | Dump → script → apply → verify using synthetic sample data |
+| [ROM analysis workbench](professional-editor/docs/ROM-ANALYSIS-WORKBENCH.md) | Static analysis, mapper candidates, graphics metadata, traces, and evidence limits |
+| [Native build guide](professional-editor/analysis/NATIVE-BUILD.md) | C99/C++17 tools, Make/CMake, commands, and coverage boundaries |
+| [ROM round-trip guide](professional-editor/analysis/ROM-ROUND-TRIP.md) | Baseline manifests and reviewed fixed-length patch builds |
+| [Strategy analysis](professional-editor/strategy-analysis/) | Evidence-oriented study of code structure and decision traces |
+| [SLeeLa SQL model](lib/sleela-sql/) and [C SQL engine](sleela-sql/) | A SLeeLa validation model alongside a CSV-backed C engine |
+| [Light](light-load/), [medium](medium-load/), and [heavy](heavy-load/) load areas | Text-only notes, character tables, scripts, and campaign manifests |
 
-### What the editor does
+## Professional Editor capabilities
 
-- Parses the **iNES** header and PRG-ROM / CHR-ROM regions, mapper, and trainer.
-- Decodes and replaces **fixed-width text slots** and named **menu-item slots**.
-- Supports optional **`.tbl` character maps** so text is read and written in a
-  game's own tile encoding — not just ASCII.
-- Honors one safety invariant above all: **a replacement must fit its slot.**
-  The editor never relocates data or rewrites pointers, so an edited ROM stays
-  structurally valid. Over-length edits and failed guards abort cleanly.
+- Inspect iNES/NES 2.0 header metadata and report validation warnings.
+- Read and replace fixed-width text/menu slots, optionally using a game-specific `.tbl` character map.
+- Apply reviewed, fixed-length byte patches with expected-byte guards.
+- Generate a per-title analysis workspace with candidate disassembly, mapper windows, CHR-pattern statistics, control-flow evidence, rules assessments, and optional emulator-trace summaries.
+- Create a separate rebuilt ROM from an explicit project manifest and preserve a byte-for-byte baseline for auditability.
+- Build native C99 and C++17 header inspectors, fixed-length patch builders, and linear-sweep 6502/2A03 disassemblers.
 
-### Four implementations, one grammar
-
-```text
-# the shared edit-script grammar (C · C++ · Java)
-table <path.tbl>                        # optional character map
-find  <offset-hex> <len> <text>         # guard: abort unless the slot matches
-set   <offset-hex> <len> <text>         # replace the slot (encoded ≤ len)
-menu  <name> <offset-hex> <len> <text>  # named menu-item replacement
-```
-
-The C, C++, and Java tools are verified to produce **byte-identical** output for
-the same script. SLeeLa expresses the editing **model and strategy** — it
-validates each planned edit against the slot invariant before a single byte is
-written, then hands the approved plan to a byte tool.
-
-## The load tiers — a text-only staging ground
-
-Editing campaigns are organized into three **ROM-free** working areas. They hold
-references, character tables, edit scripts, and notes — never game images.
-
-| Tier | For | |
-|---|---|---|
-| [`light-load/`](light-load/) · [`ll/`](ll/) | one title, a few edits | the quick pass |
-| [`medium-load/`](medium-load/) | a batch of titles, shared tables | the working set |
-| [`heavy-load/`](heavy-load/) | large multi-title campaigns, full tables | the long haul |
-
-Each tier carries a `manifest.tsv` that references titles **by filename only**,
-plus `tables/`, `scripts/`, and `notes/`. A `.gitignore` in every tier blocks
-ROM and image formats, so the "no ROMs here" promise is enforced mechanically,
-not just by convention.
+The native disassemblers are **linear sweeps**, not mapper-aware execution or complete source recovery. Data may be decoded as instructions, and CPU addresses/bank mappings remain hypotheses until validated. The Python workbench has broader analysis and project-manifest features than the current native tools.
 
 ## Quick start
 
+From the repository root:
+
 ```sh
-# Build the editors (C, C++, Java; SLeeLa is interpreted)
-cd professional-editor && ./build-all.sh
+cd professional-editor
 
-# Inspect a ROM you own
-c/nes-edit info your.nes
+# Build the native tools for the current operating system
+make release-binaries
 
-# Read a text slot — ASCII, or through a character table
-c/nes-edit dump your.nes 1A2C 16 your.tbl
+# Run the available test suite
+make test
 
-# Apply an edit script to a working copy; the original is never touched
-c/nes-edit apply your.nes edits.edit your.edited.nes
+# Inspect a ROM you are entitled to use (read-only)
+build/nes-native-c /path/to/game.nes
+build/nes-native-cpp /path/to/game.nes
+
+# Produce a conservative native disassembly report
+build/nes-disasm-c --out-dir ./private-analysis /path/to/game.nes
+build/nes-disasm-cpp --out-dir ./private-analysis /path/to/game.nes
+
+# Generate a Python analysis workspace
+python3 analysis/nes_dev_environment.py /path/to/game.nes --title "Research Title"
+
+# Initialize and build a reviewed patch project
+python3 analysis/nes_rom_build.py init /path/to/game.nes --project ./projects/research-title --title "Research Title"
+python3 analysis/nes_rom_build.py build --project ./projects/research-title/rom-project.json
 ```
 
-The C++ (`cpp/nes-edit-cpp`) and Java (`NesEditCli`) front-ends take identical
-arguments.
+See [examples](professional-editor/examples/README.md) for a synthetic ROM you can generate locally, inspect, and patch without using a commercial game image.
 
-## Design principles
+## Native build and CI
 
-- **Format-faithful.** We read iNES exactly as specified and change only what we
-  are asked to, in place.
-- **Non-destructive.** Originals are inputs, never outputs. The slot invariant
-  keeps every edit reversible and structurally safe.
-- **Multi-language parity.** The same edit yields the same bytes in C, C++, and
-  Java; SLeeLa reasons about the plan first.
-- **Clean-room and ROM-free.** The repository is tooling and text. The games are
-  yours and stay with you.
+The [NES ROM Analysis Native Build workflow](.github/workflows/rom-analysis-native.yml) is configured to build and test on Linux, macOS, and Windows, and to publish OS-specific native-tool artifacts. The workflow configuration is not proof that a particular commit passed: check the Actions run for the exact commit before relying on its result.
+
+The native build currently packages six executables:
+
+- `nes-native-c` and `nes-native-cpp` — header inspection.
+- `nes-rom-build-c` and `nes-rom-build-cpp` — reviewed fixed-length patching.
+- `nes-disasm-c` and `nes-disasm-cpp` — conservative linear-sweep disassembly.
+
+Build with Make or CMake; see [NATIVE-BUILD.md](professional-editor/analysis/NATIVE-BUILD.md) for details and known limitations.
+
+## Safety and repository hygiene
+
+- Use ROMs you are legally entitled to inspect or modify.
+- Keep commercial ROMs, saves, patches containing copyrighted material, and extracted copyrighted assets out of commits.
+- Preserve originals; write edits to separate paths.
+- Verify expected bytes, bounds, patch overlap, and output reports before using a modified image.
+- Treat static analysis, mapper profiles, branch targets, gameplay hypotheses, and trace findings as evidence with explicit uncertainty—not as proof of complete program behavior.
+- The load-tier folders are intended for text-only notes and edit artifacts; check each directory's own documentation and ignore rules.
+
+## Project scope
+
+This is a toolkit and research workspace, not a universal NES decompiler, assembler/linker, emulator, or guarantee of game-logic recovery. Length-changing text edits, pointer relocation, mapper-aware code relocation, stateful bank emulation, and fully rendered PPU scenes require additional title-specific or runtime-aware work.
 
 ---
 
-<p align="center"><sub>
-  Professional NES ROM tooling · iNES format · clean-room · no copyrighted content
-</sub></p>
-
-
-## ROM analysis workbench
-
-The repository now includes a first-pass, read-only analyzer under professional-editor/analysis. It validates common iNES/NES 2.0 region metadata, reports mapper/header information and warnings, scans printable ASCII candidates, records likely interrupt-vector locations, and exports a grayscale PGM sheet of raw CHR-ROM tiles. It does not modify source ROM files.
-
-Run from the professional-editor directory with Python 3.10+:
-
-    python3 analysis/nes_inspect.py /path/to/game.nes
-    python3 analysis/nes_inspect.py game-a.nes game-b.nes --out-dir /path/to/private-analysis
-    python3 -m unittest analysis/test_nes_inspect.py
-
-See professional-editor/docs/ROM-ANALYSIS-WORKBENCH.md for the roadmap covering sprite and animation inference, mapper-aware 6502 disassembly, settings, game-state logic, control-flow analysis, and emulator trace correlation. Those advanced capabilities are not claimed by the first-pass tool yet. User-owned ROMs, saves, patches, and generated tile sheets are ignored by Git; do not commit game ROMs or extracted copyrighted assets.
-
-
-## NES ROM analysis workbench
-
-The first analysis pipeline is now available in professional-editor/analysis. It combines read-only container inspection, candidate PRG bank windows, conservative 6502/2A03 linear disassembly, raw CHR duplicate-pattern analysis, control-flow candidates, low-confidence gameplay/state hypotheses, and optional emulator trace aggregation. See [the workbench guide](professional-editor/docs/ROM-ANALYSIS-WORKBENCH.md).
-
-From professional-editor, run:
-
-    python3 analysis/nes_workbench.py /path/to/game.nes
-    python3 analysis/nes_workbench.py game-a.nes game-b.nes --out-dir /path/to/private-analysis
-    python3 analysis/nes_workbench.py game.nes --trace emulator-trace.json
-    python3 -m unittest analysis/test_nes_inspect.py analysis/test_nes_workbench.py
-
-This is a first static-analysis foundation, not yet a full emulator or decompiler. Linear disassembly may decode data as code; mapper bank views are approximate; and true sprite/scene reconstruction requires palette, nametable, attribute, OAM, and runtime evidence. Findings carry offsets and confidence notes. The ROM-free test workflow is defined in .github/workflows/nes-analysis.yml.
-
-
-Trace support also recognizes optional OAM, palette, and nametable snapshots from emulator-exported JSON/CSV events. OAM records expose sprite coordinates, tile IDs, palette bits, priority, and flips; palette bytes and the 32x30 nametable tile-index grid are preserved for analysis. Emulator-specific adapters are still needed for direct capture and attribute-table reconstruction.
-
-
-The current analyzer also includes a recursive reachability candidate for standard NROM images, seeded from interrupt vectors, and address hints for common PPU, OAM DMA, APU, and controller registers. These clues help prioritize code review but do not prove code/data boundaries or the semantic role of each routine.
+<p align="center"><sub>mearvk · Nintendo Studio · original tooling · evidence-first ROM research</sub></p>
