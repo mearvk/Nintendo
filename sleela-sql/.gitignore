@@ -1,8 +1,0 @@
-# Build outputs for sleela-sql
-*.o
-*.a
-sleela-sql
-
-# Local database directories (CSV tables created by the engine at runtime)
-data/
-*.csv
