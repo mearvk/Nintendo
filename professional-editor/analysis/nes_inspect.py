@@ -5,6 +5,8 @@ import argparse
 import json
 import re
 import sys
+import struct
+import zlib
 from pathlib import Path
 
 HEADER_SIZE = 16
@@ -63,6 +65,38 @@ def write_pgm_tile_sheet(path: Path, chr_data: bytes, tiles_per_row: int = 32) -
                     scanline.extend([0] * 8)
             pixels.extend(scanline)
     path.write_bytes(f"P5\n{width} {height}\n255\n".encode("ascii") + pixels)
+    return tile_count
+
+
+def write_png_tile_sheet(path: Path, chr_data: bytes, tiles_per_row: int = 32) -> int:
+    """Write a browser-friendly grayscale PNG sheet without third-party packages."""
+    tile_count = len(chr_data) // 16
+    tile_rows = (tile_count + tiles_per_row - 1) // tiles_per_row
+    width, height = tiles_per_row * 8, tile_rows * 8
+    shades = (0, 85, 170, 255)
+    raw = bytearray()
+    for tile_y in range(tile_rows):
+        for pixel_y in range(8):
+            row = bytearray([0])  # PNG filter type 0
+            for tile_x in range(tiles_per_row):
+                index = tile_y * tiles_per_row + tile_x
+                if index < tile_count:
+                    tile = chr_data[index * 16:index * 16 + 16]
+                    lo, hi = tile[pixel_y], tile[pixel_y + 8]
+                    for x in range(8):
+                        value = ((lo >> (7 - x)) & 1) | (((hi >> (7 - x)) & 1) << 1)
+                        row.append(shades[value])
+                else:
+                    row.extend([0] * 8)
+            raw.extend(row)
+    def chunk(kind: bytes, payload: bytes) -> bytes:
+        body = kind + payload
+        return struct.pack(">I", len(payload)) + body + struct.pack(">I", zlib.crc32(body) & 0xffffffff)
+    png = (b"\x89PNG\r\n\x1a\n" +
+           chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 0, 0, 0, 0)) +
+           chunk(b"IDAT", zlib.compress(bytes(raw), 9)) +
+           chunk(b"IEND", b""))
+    path.write_bytes(png)
     return tile_count
 
 def inspect(path: Path, out_root: Path) -> dict:
