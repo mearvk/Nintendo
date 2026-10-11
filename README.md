@@ -100,3 +100,27 @@ This is a toolkit and research workspace, not a universal NES decompiler, assemb
 ---
 
 <p align="center"><sub>mearvk · Nintendo Studio · original tooling · evidence-first ROM research</sub></p>
+
+
+## Research toolkit additions
+
+The repository roadmap and subsystem specifications now live in:
+
+- [Development roadmap](DEVELOPMENT-ROADMAP.md) — phased plan and definition of done.
+- [Hardware reference library](docs/hardware/README.md) — platform coverage and evidence standards.
+- [ROM inventory and provenance](docs/ROM-INVENTORY.md) and [manifest schema](manifests/rom-manifest.schema.json).
+- [Project workflow](docs/PROJECT-WORKFLOW.md) and [security guidance](PROJECT-SECURITY.md).
+- [Graphics analysis](graphics/README.md) and [graphics implementation status](graphics/FORMAT-STATUS.md).
+- [Audio research](audio/README.md) and [audio implementation status](audio/FORMAT-STATUS.md).
+- [Controller/input reference](input/README.md) and [draft event schema](input/CONTROLLER-EVENTS.md).
+- [Emulator integration](emulation/README.md) and [draft trace schema](emulation/TRACE-SCHEMA.md).
+- [Synthetic fixtures](fixtures/README.md), [test strategy](tests/README.md), and [release checklist](releases/README.md).
+
+Generate an original synthetic iNES test image without downloading a game ROM:
+
+```sh
+python3 fixtures/generate_synthetic_nes.py /tmp/nintendo-synthetic.nes
+python3 -m unittest discover -s tests -p 'test_*.py'
+```
+
+These new documents identify planned features as planned; they do not claim that a graphics editor, audio analyzer, emulator, or unified GUI is already implemented. Review [ROM inventory guidance](docs/ROM-INVENTORY.md) before relocating or redistributing any existing binary archives.
