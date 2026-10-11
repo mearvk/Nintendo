@@ -1,7 +1,7 @@
 name: NES ROM Analysis Native Build
 on:
   push:
-    branches: [main, master, feature/rom-analysis-workbench]
+    branches: [main, master, feature/rom-analysis-workbench, feature/rom-native-release-binaries]
     paths:
       - 'professional-editor/analysis/**'
       - 'professional-editor/examples/**'
@@ -33,7 +33,20 @@ jobs:
       - name: Build and test (POSIX)
         if: runner.os != 'Windows'
         working-directory: professional-editor
-        run: make test
+        run: |
+          make test
+          mkdir -p dist
+          cp build/nes-native-c build/nes-native-cpp build/nes-rom-build-c build/nes-rom-build-cpp dist/
+          chmod +x dist/*
+          cat > dist/README.md <<'EOF'
+          NES ROM Native Tools
+          --------------------
+          These executables were built for the operating system attached to this artifact.
+          nes-native-c / nes-native-cpp inspect iNES/NES 2.0 headers and write summary reports.
+          nes-rom-build-c / nes-rom-build-cpp apply reviewed fixed-length byte patches.
+          Run each tool with --help for usage. Keep the original ROM and write edits to a separate output file.
+          The native patch builders do not assemble source code or relocate pointers.
+          EOF
       - name: Build and test (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -43,3 +56,24 @@ jobs:
           cmake --build build-cmake --config Release
           python -m py_compile analysis/nes_inspect.py analysis/nes_disasm.py analysis/nes_workbench.py analysis/nes_dev_environment.py analysis/nes_circuit.py analysis/nes_advanced.py analysis/nes_rom_build.py examples/create_minimal_rom.py examples/inspect_existing.py
           python -m unittest analysis/test_nes_inspect.py analysis/test_nes_workbench.py analysis/test_nes_circuit.py analysis/test_nes_advanced.py analysis/test_nes_dev_environment.py analysis/test_nes_rom_build.py examples/test_examples.py -v
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item build-cmake/Release/nes-native-c.exe dist/
+          Copy-Item build-cmake/Release/nes-native-cpp.exe dist/
+          Copy-Item build-cmake/Release/nes-rom-build-c.exe dist/
+          Copy-Item build-cmake/Release/nes-rom-build-cpp.exe dist/
+          @'
+          NES ROM Native Tools (Windows)
+          ==============================
+          These executables were built for Windows.
+          nes-native-c.exe / nes-native-cpp.exe inspect iNES/NES 2.0 headers and write summary reports.
+          nes-rom-build-c.exe / nes-rom-build-cpp.exe apply reviewed fixed-length byte patches.
+          Run each tool with --help for usage. Keep the original ROM and write edits to a separate output file.
+          The native patch builders do not assemble source code or relocate pointers.
+          '@ | Set-Content -Encoding utf8 dist/README.md
+      - name: Upload OS-specific native binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: nes-native-tools-${{ runner.os }}
+          path: professional-editor/dist/
+          if-no-files-found: error
+          retention-days: 30
