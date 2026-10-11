@@ -67,14 +67,14 @@ def evaluate_rules(rules, instructions, trace=None):
             evidence.append("No disassembled instruction at this address; bank mapping or code/data classification may be wrong.")
         else:
             evidence.append(f"Static instruction candidate count: {len(by_addr[addr])}.")
-            status = "consistent-with-declared-rule" if action.get("verdict") in ("allowed", "required") else "unresolved"
+            status = "unresolved"
         if addr is not None and observed_pc:
             count = observed_pc.count(addr)
             evidence.append(f"Supplied trace PC hits: {count}.")
             if action.get("verdict") == "forbidden" and count:
                 status = "conflicts-with-declared-rule"
                 evidence.append("The forbidden address was observed in the supplied trace.")
-            elif action.get("verdict") == "required" and count:
+            elif action.get("verdict") in ("required", "allowed") and count:
                 status = "consistent-with-declared-rule"
             elif action.get("verdict") == "required" and not count:
                 status = "unresolved"
@@ -85,6 +85,17 @@ def evaluate_rules(rules, instructions, trace=None):
         elif action.get("verdict") == "forbidden":
             status = "unresolved"
             evidence.append("Static presence alone does not prove execution; a forbidden action needs runtime path evidence.")
+        if addr is not None and action.get("max_visits") is not None and observed_pc:
+            count = observed_pc.count(addr)
+            try:
+                limit = int(action["max_visits"])
+                if count > limit:
+                    status = "conflicts-with-declared-rule"
+                    evidence.append(f"Observed {count} visits exceeds max_visits={limit}.")
+                else:
+                    evidence.append(f"Observed {count} visits; declared max_visits={limit}.")
+            except (ValueError, TypeError):
+                evidence.append("max_visits is not an integer; visit limit is unresolved.")
         declared.setdefault(addr, []).append(action)
         issues.append({"address": f"0x{addr:04X}" if addr is not None else None, "label": label,
             "verdict": action.get("verdict", "unspecified"), "status": status, "evidence": evidence})
@@ -111,6 +122,31 @@ def evaluate_rules(rules, instructions, trace=None):
                         why = "Observed first-occurrence order in the supplied trace."
                     issues.append({"address": f"0x{addr:04X}", "label": action.get("label", ""),
                         "criterion": f"{relation} {other_raw}", "status": result, "evidence": [why]})
+    # State assertions are checked only against explicit memory-address/value trace events.
+    writes = {}
+    for event in events:
+        address, value = _addr(event.get("address")), _addr(event.get("value"))
+        if address is not None and value is not None:
+            writes.setdefault(address, []).append(value)
+    for assertion in rules.get("state_assertions", []) if isinstance(rules, dict) else []:
+        address = _addr(assertion.get("address"))
+        expected = _addr(assertion.get("value"))
+        values = writes.get(address, []) if address is not None else []
+        operator = assertion.get("operator", "equals")
+        label = assertion.get("label", "")
+        if expected is None or not values:
+            status, why = "unresolved", "No usable expected value or matching memory event was supplied."
+        else:
+            actual = values[-1]
+            predicates = {"equals": actual == expected, "not_equals": actual != expected,
+                "gt": actual > expected, "gte": actual >= expected, "lt": actual < expected, "lte": actual <= expected}
+            if operator not in predicates:
+                status, why = "unresolved", f"Unsupported operator: {operator}"
+            else:
+                status = "consistent-with-declared-rule" if predicates[operator] else "conflicts-with-declared-rule"
+                why = f"Last observed value 0x{actual:X}; expected {operator} 0x{expected:X}."
+        issues.append({"address": f"0x{address:04X}" if address is not None else None,
+            "label": label, "criterion": "state assertion", "status": status, "evidence": [why]})
     return {"schema_version": SCHEMA_VERSION, "title": rules.get("title", ""),
         "objective": rules.get("objective", ""), "constraint_count": len(rules.get("constraints", [])),
         "action_count": len(actions), "checks": issues,
