@@ -36,7 +36,7 @@ jobs:
         run: |
           make test
           mkdir -p dist
-          cp build/nes-native-c build/nes-native-cpp build/nes-rom-build-c build/nes-rom-build-cpp dist/
+          cp build/nes-native-c build/nes-native-cpp build/nes-rom-build-c build/nes-rom-build-cpp build/nes-disasm-c build/nes-disasm-cpp dist/
           chmod +x dist/*
           cat > dist/README.md <<'EOF'
           NES ROM Native Tools
@@ -45,7 +45,7 @@ jobs:
           nes-native-c / nes-native-cpp inspect iNES/NES 2.0 headers and write summary reports.
           nes-rom-build-c / nes-rom-build-cpp apply reviewed fixed-length byte patches.
           Run each tool with --help for usage. Keep the original ROM and write edits to a separate output file.
-          The native patch builders do not assemble source code or relocate pointers.
+          The native patch builders do not assemble source code or relocate pointers. The disassemblers do not recover mapper-aware control flow. The disassemblers do not recover mapper-aware control flow.
           EOF
       - name: Build and test (Windows)
         if: runner.os == 'Windows'
