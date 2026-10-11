@@ -280,7 +280,7 @@ def mapper_trace_state(mapper, prg_size, chr_size, events):
     state["note"] = "Derived only from explicit trace events with address/value fields in mapper register space; writes and bank numbers require mapper/trace validation."
     return state
 
-def analyze_advanced(mapper, prg_size, instructions, trace=None, rules=None):
+def analyze_advanced(mapper, prg_size, instructions, trace=None, rules=None, chr_size=0):
     normalized = normalize_trace_events(trace) if trace is not None else normalize_trace_events([])
     events = normalized.get("events", [])
     scene = {"available": False, "reason": "Requires explicit nametable, attribute-table, palette and CHR/CHR-RAM snapshots from a compatible emulator trace."}
@@ -301,7 +301,7 @@ def analyze_advanced(mapper, prg_size, instructions, trace=None, rules=None):
             for i in (instructions or []) if _addr(i.get("operand")) is not None
         ][:10000],
         "mapper_state_model": mapper_profile(mapper, prg_size),
-        "mapper_trace_state": mapper_trace_state(mapper, prg_size, 0, events),
+        "mapper_trace_state": mapper_trace_state(mapper, prg_size, chr_size, events),
         "normalized_trace": {k:v for k,v in normalized.items() if k != "events"},
         "trace_events_normalized": events[:10000],
         "rules_evaluation": evaluate_rules(rules or rules_template(), instructions, trace if isinstance(trace, dict) else None),
