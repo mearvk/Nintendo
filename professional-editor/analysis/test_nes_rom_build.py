@@ -111,7 +111,7 @@ class NesRomBuildTests(unittest.TestCase):
 
     def test_truncated_rom_rejected(self):
         with self.assertRaisesRegex(ValueError, "ROM is truncated"):
-            nes_rom_build.inspect_rom(b"NES\\x1a" + bytes([1, 1]) + bytes(10))
+            nes_rom_build.inspect_rom(b"NES\x1a" + bytes([1, 1]) + bytes(10))
 
     def test_bad_magic_rejected(self):
         with self.assertRaisesRegex(ValueError, "missing NES"):
