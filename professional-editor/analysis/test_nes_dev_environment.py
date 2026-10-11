@@ -1,7 +1,12 @@
 """Integration tests for the terminal workspace generator."""
-import json, tempfile, unittest
+import importlib.util, json, tempfile, unittest
 from pathlib import Path
-import nes_dev_environment
+HERE = Path(__file__).parent
+spec = importlib.util.spec_from_file_location("nes_dev_environment", HERE / "nes_dev_environment.py")
+nes_dev_environment = importlib.util.module_from_spec(spec)
+import sys
+sys.modules[spec.name] = nes_dev_environment
+spec.loader.exec_module(nes_dev_environment)
 
 class DevEnvironmentTests(unittest.TestCase):
     def make_rom(self, path):
