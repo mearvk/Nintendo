@@ -79,14 +79,14 @@ jobs:
         working-directory: professional-editor
         run: |
           git rev-parse HEAD > dist/SOURCE_COMMIT.txt
-          python -c "import hashlib,pathlib; d=pathlib.Path('dist'); files=sorted(x for x in d.iterdir() if x.is_file() and x.name!='SHA256SUMS.txt'); (d/'SHA256SUMS.txt').write_text(''.join('{}  {}\\n'.format(hashlib.sha256(x.read_bytes()).hexdigest(),x.name) for x in files),encoding='ascii')"
+          python -c "import hashlib,pathlib; d=pathlib.Path('dist'); files=sorted(x for x in d.iterdir() if x.is_file() and x.name!='SHA256SUMS.txt'); (d/'SHA256SUMS.txt').write_text(''.join('{}  {}\n'.format(hashlib.sha256(x.read_bytes()).hexdigest(),x.name) for x in files),encoding='ascii')"
       - name: Record source commit and checksums (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         working-directory: professional-editor
         run: |
           git rev-parse HEAD | Set-Content -Encoding ascii dist/SOURCE_COMMIT.txt
-          python -c "import hashlib,pathlib; d=pathlib.Path('dist'); files=sorted(x for x in d.iterdir() if x.is_file() and x.name!='SHA256SUMS.txt'); (d/'SHA256SUMS.txt').write_text(''.join('{}  {}\\n'.format(hashlib.sha256(x.read_bytes()).hexdigest(),x.name) for x in files),encoding='ascii')"
+          python -c "import hashlib,pathlib; d=pathlib.Path('dist'); files=sorted(x for x in d.iterdir() if x.is_file() and x.name!='SHA256SUMS.txt'); (d/'SHA256SUMS.txt').write_text(''.join('{}  {}\n'.format(hashlib.sha256(x.read_bytes()).hexdigest(),x.name) for x in files),encoding='ascii')"
       - name: Upload OS-specific native binaries
         uses: actions/upload-artifact@v4
         with:
