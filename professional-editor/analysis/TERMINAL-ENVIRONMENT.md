@@ -17,7 +17,7 @@ By default the output is in the current directory as `development-environment-TI
 ## Workspace
 
 - `title-description.md`: editable synopsis and research notes.
-- `source-rom/rom-metadata.json`: metadata only; the ROM itself is not copied.
+- `source-rom/rom-metadata.json`: metadata only; the baseline ROM copy is kept separately in `rom-project/source/original.nes`.
 - `sprites/`: grayscale CHR tile maps and a CSV catalog of raw tile patterns.
 - `game-logic/`: gameplay hypotheses, state/memory-map notebooks, action assessment, editable `game-rules.json`, and rules-evaluation reports.
 - `codes/circuit/`: JSON circuit graph and Graphviz DOT, including sequence edges, branches, loop candidates, and action evidence.
@@ -32,7 +32,7 @@ By default the output is in the current directory as `development-environment-TI
 
 ## Rebuild
 
-Edit `rom-project/rom-project.json` to enable reviewed fixed-length patches, then run `python3 analysis/nes_rom_build.py build --project rom-project/rom-project.json` from `professional-editor/` (adjust the path to the workspace). See `ROM-ROUND-TRIP.md`.
+Edit `rom-project/rom-project.json` to enable reviewed fixed-length patches, then run from `professional-editor/`: `python3 analysis/nes_rom_build.py build --project /path/to/development-environment-TITLE/rom-project/rom-project.json`. The built ROM and report are written inside that project's `rom-project/build/`. See `ROM-ROUND-TRIP.md`.
 
 ## Rules and action evaluation
 
