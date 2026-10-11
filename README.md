@@ -135,3 +135,6 @@ From professional-editor, run:
     python3 -m unittest analysis/test_nes_inspect.py analysis/test_nes_workbench.py
 
 This is a first static-analysis foundation, not yet a full emulator or decompiler. Linear disassembly may decode data as code; mapper bank views are approximate; and true sprite/scene reconstruction requires palette, nametable, attribute, OAM, and runtime evidence. Findings carry offsets and confidence notes. The ROM-free test workflow is defined in .github/workflows/nes-analysis.yml.
+
+
+Trace support also recognizes optional OAM, palette, and nametable snapshots from emulator-exported JSON/CSV events. OAM records expose sprite coordinates, tile IDs, palette bits, priority, and flips; palette bytes and the 32x30 nametable tile-index grid are preserved for analysis. Emulator-specific adapters are still needed for direct capture and attribute-table reconstruction.
