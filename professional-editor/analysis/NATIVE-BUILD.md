@@ -7,8 +7,11 @@ The Python workbench remains the feature-complete analysis and workspace pipelin
 From `professional-editor/`:
 
     make
+    make release-binaries
     make test
     make clean
+
+`make test` runs the Python unit tests, native smoke tests (including generated disassembly reports and fixed-length patch checks), and the development-environment CLI help check. The native test target creates a synthetic ROM locally; it does not require a commercial ROM image.
 
 Binaries:
 - `build/nes-native-c` — native header inspection.
@@ -22,6 +25,8 @@ CMake alternative:
 
     cmake -S . -B build-cmake
     cmake --build build-cmake --config Release
+
+CMake builds the native executables. The Makefile's `make test` target is the documented combined Python/native smoke-test entry point; the Windows CI job builds with CMake and runs the Python test suite.
 
 ## Native linear-sweep disassembly
 
