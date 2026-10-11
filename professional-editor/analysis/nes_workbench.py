@@ -101,6 +101,71 @@ def graphics(chr_data):
         "incomplete_trailing_bytes":len(chr_data)-usable,"duplicate_pattern_groups":groups[:1000],
         "note":"Raw CHR patterns do not establish palette, sprite grouping, or screen usage."}
 
+def reachable_nrom(prg, file_base):
+    """Conservative recursive traversal for NROM only; banked mappers need stateful mapping."""
+    if len(prg) not in (16384,32768) or len(prg)<6:
+        return {"supported":False,"instructions":[],"note":"Reachability traversal is currently limited to standard 16/32 KiB NROM."}
+    def map_address(address):
+        if not 0x8000 <= address <= 0xFFFF: return None
+        if len(prg)==16384: return (address-0x8000) % 16384
+        return address-0x8000
+    vector_offset=len(prg)-6
+    seeds=[]
+    for name,pos in (("nmi",vector_offset),("reset",vector_offset+2),("irq_brk",vector_offset+4)):
+        address=prg[pos] | (prg[pos+1]<<8)
+        if map_address(address) is not None: seeds.append({"vector":name,"address":address})
+    queue=[x["address"] for x in seeds]
+    visited=set(); result=[]
+    while queue and len(result)<100000:
+        address=queue.pop(0)
+        off=map_address(address)
+        if off is None or off in visited: continue
+        visited.add(off)
+        ins_list=disasm_mod.disassemble(prg[off:min(len(prg),off+3)],address,file_base+off,"NROM-reachable",limit=3)
+        if not ins_list: continue
+        ins=ins_list[0]
+        # If a truncated operand reaches the end of the selected PRG image, stop this path.
+        if ins.get("classification")=="truncated_instruction": continue
+        ins["reachability"]="reachable_candidate"
+        ins["seed_vectors"]=seeds
+        result.append(ins)
+        next_addr=(address+ins["size"])&0xFFFF
+        target=ins.get("target_cpu_address")
+        target_addr=int(target,16) if target else None
+        flow=ins.get("flow")
+        if flow=="conditional_branch":
+            if target_addr is not None: queue.append(target_addr)
+            queue.append(next_addr)
+        elif flow=="call":
+            if target_addr is not None: queue.append(target_addr)
+            queue.append(next_addr)
+        elif flow=="jump":
+            if target_addr is not None and ins.get("mnemonic")=="JMP" and not ins.get("operand","").startswith("("):
+                queue.append(target_addr)
+        elif flow not in ("return",) and ins.get("mnemonic")!="BRK":
+            queue.append(next_addr)
+    return {"supported":True,"seed_vectors":seeds,"visited_byte_offsets":len(visited),
+        "instructions":sorted(result,key=lambda x:x["file_offset"]),
+        "note":"Reachability is a candidate for NROM only. Indirect JMP targets and data/code ambiguity remain unresolved."}
+
+def hardware_register_candidates(instructions):
+    names={0x2000:"PPUCTRL",0x2001:"PPUMASK",0x2002:"PPUSTATUS",0x2003:"OAMADDR",
+           0x2004:"OAMDATA",0x2005:"PPUSCROLL",0x2006:"PPUADDR",0x2007:"PPUDATA",
+           0x4014:"OAMDMA",0x4015:"APUSTATUS",0x4016:"CONTROLLER1_OR_STROBE",
+           0x4017:"CONTROLLER2_OR_FRAME_COUNTER"}
+    out=[]
+    for ins in instructions:
+        operand=ins.get("operand","")
+        match=re.match(r"^0x([0-9A-Fa-f]{4})(?:,|$)",operand)
+        if match:
+            addr=int(match.group(1),16)
+            if addr in names:
+                out.append({"register":names[addr],"address":f"0x{addr:04X}",
+                    "mnemonic":ins.get("mnemonic"),"file_offset":ins.get("file_offset"),
+                    "cpu_address_candidate":ins.get("cpu_address_candidate"),
+                    "confidence":"medium","note":"Address matches a standard NES I/O register; confirm instruction context and mapper/hardware variant."})
+    return out
+
 def analyze(rom, outroot, tracepath=None):
     raw=rom.read_bytes()
     base=inspect_mod.inspect(rom,outroot)
@@ -117,6 +182,8 @@ def analyze(rom, outroot, tracepath=None):
             "cpu_base_candidate":f"0x{bank['cpu_base']:04X}","instructions":ins})
         instructions.extend(ins)
     trace=trace_data(tracepath) if tracepath else None
+    reachable=reachable_nrom(prg,prgoff) if mapper==0 else {"supported":False,"instructions":[],"note":"Recursive traversal not yet enabled for this mapper."}
+    hardware=hardware_register_candidates(instructions)
     calls=[i for i in instructions if i.get("mnemonic")=="JSR"]
     jumps=[i for i in instructions if i.get("mnemonic")=="JMP"]
     branches=[i for i in instructions if i.get("flow")=="conditional_branch"]
@@ -152,7 +219,8 @@ def analyze(rom, outroot, tracepath=None):
     result={"schema_version":"1.0","input":str(rom.resolve()),"container":base,
         "mapper_analysis":{"mapper":mapper,"bank_windows":[{k:v for k,v in b.items() if k!="data"} for b in disasm_mod.prg_banks(prg,mapper)],
             "note":"Bank windows are approximate views; mapper register state is not emulated."},
-        "graphics":graphics(chrdata),"disassembly":{"bank_count":len(bankresults),"instructions":instructions},
+        "graphics":graphics(chrdata),"disassembly":{"bank_count":len(bankresults),"instructions":instructions,"reachable_nrom":reachable},
+        "hardware_register_candidates":hardware,
         "control_flow_candidates":{"calls":calls[:5000],"jumps":jumps[:5000],"branches":branches[:10000],
             "stores":stores[:10000],"immediate_constants":immediates[:10000],
             "note":"Linear sweep may decode data as instructions; no function boundaries are proven."},
