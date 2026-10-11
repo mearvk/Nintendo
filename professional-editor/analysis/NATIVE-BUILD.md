@@ -4,12 +4,22 @@ The Python workbench remains the feature-complete analysis and workspace pipelin
 
 ## Build
 
-From `professional-editor/`:
+From `professional-editor/` on Linux or macOS (with a C compiler, C++17 compiler, Python 3, and Make installed):
 
     make
     make release-binaries
     make test
     make clean
+
+On **Windows 10/11**, use the PowerShell build script and CMake (Visual Studio 2019+ Build Tools or Visual Studio with the C/C++ workload, plus Python 3):
+
+    powershell -ExecutionPolicy Bypass -File .\\build-windows.ps1
+    # or, from this directory:
+    cmake -S . -B build-cmake
+    cmake --build build-cmake --config Release
+    python ..\\scripts\\native_tooling_smoke.py build-cmake\\Release
+
+The PowerShell script configures, builds all C and C++ targets, and runs portable smoke tests. It does not require GNU Make, Bash, or POSIX utilities. On macOS, `./build-macos.sh` runs the Make build and tests; it uses the system Clang toolchain after installing Xcode Command Line Tools (`xcode-select --install`) if needed.
 
 `make test` runs the Python unit tests, native smoke tests (including generated disassembly reports and fixed-length patch checks), and the development-environment CLI help check. The native test target creates a synthetic ROM locally; it does not require a commercial ROM image.
 
@@ -26,7 +36,7 @@ CMake alternative:
     cmake -S . -B build-cmake
     cmake --build build-cmake --config Release
 
-CMake builds the native executables. The Makefile's `make test` target is the documented combined Python/native smoke-test entry point; the Windows CI job builds with CMake and runs the Python test suite.
+CMake builds all twelve C/C++ executables. The Makefile's `make test` target runs the combined Python/native smoke suite on POSIX systems. The PowerShell script and Windows CI run the same portable native smoke suite without relying on POSIX shell commands.
 
 ## Native linear-sweep disassembly
 
