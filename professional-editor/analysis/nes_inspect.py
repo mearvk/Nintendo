@@ -137,10 +137,14 @@ def inspect(path: Path, out_root: Path) -> dict:
     out_dir = out_root / (path.stem or "rom")
     out_dir.mkdir(parents=True, exist_ok=True)
     tile_sheet = None
+    tile_sheet_png = None
     tile_count = 0
     if chr_size and len(chr_data) >= 16:
+        complete_chr = chr_data[:len(chr_data)//16*16]
         tile_sheet = "chr-tiles.pgm"
-        tile_count = write_pgm_tile_sheet(out_dir / tile_sheet, chr_data[:len(chr_data)//16*16])
+        tile_sheet_png = "chr-tiles.png"
+        tile_count = write_pgm_tile_sheet(out_dir / tile_sheet, complete_chr)
+        write_png_tile_sheet(out_dir / tile_sheet_png, complete_chr)
 
     vectors = {}
     if len(prg) >= 6:
@@ -172,7 +176,7 @@ def inspect(path: Path, out_root: Path) -> dict:
         },
         "vectors": vectors,
         "findings": {"ascii_candidates_in_prg": printable_runs(prg),
-                     "chr_tile_count_complete_8x8": tile_count, "chr_tile_sheet": tile_sheet},
+                     "chr_tile_count_complete_8x8": tile_count, "chr_tile_sheet": tile_sheet, "chr_tile_sheet_png": tile_sheet_png},
         "warnings": warnings,
         "limitations": [
             "ASCII scanning misses games using custom tile encodings; a game-specific .tbl table may be needed.",
