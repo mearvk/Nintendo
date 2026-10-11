@@ -1,6 +1,6 @@
 # Native C and C++ ROM tools
 
-The Python workbench remains the feature-complete analysis and workspace pipeline. Native C99 and C++17 programs provide header inspection and an independently implemented fixed-length patch builder. Native parity is being expanded deliberately; these programs do not yet reproduce mapper-aware disassembly, circuit/action evidence, trace ingestion, graphics reports, the HTML dashboard, or Python's JSON project-manifest workflow.
+The Python workbench remains the feature-complete analysis and workspace pipeline. Native C99 and C++17 programs provide header inspection, fixed-length patch building, and a conservative linear-sweep 6502/2A03 disassembly report. Native parity is being expanded deliberately; these programs do not yet reproduce the circuit/action evidence engine, trace ingestion, full graphics reports, HTML dashboard, or Python's JSON project-manifest workflow.
 
 ## Build
 
@@ -14,14 +14,14 @@ Binaries:
 - `build/nes-native-c` — native header inspection.
 - `build/nes-native-cpp` — native header inspection.
 - `build/nes-rom-build-c` — native fixed-length patch builder.
-- `build/nes-rom-build-cpp` — native fixed-length patch builder.
+- `build/nes-rom-build-cpp` — native fixed-length patch builder.\n- `build/nes-disasm-c` — native C99 disassembly and header summary.\n- `build/nes-disasm-cpp` — C++17 build of the shared native disassembly core.
 
 CMake alternative:
 
     cmake -S . -B build-cmake
     cmake --build build-cmake --config Release
 
-## Native round-trip patch command
+## Native disassembly\n\n    build/nes-disasm-c --out-dir ./analysis-output game.nes\n    build/nes-disasm-cpp --out-dir ./analysis-output game.nes\n\nEach creates a title-specific directory containing `summary.md` and `disassembly.asm`. The decoder emits official opcode mnemonics it recognizes and emits unsupported/unofficial bytes as `.byte`. This is a linear sweep over available PRG bytes, not control-flow recovery: code/data boundaries, mapper bank windows, CPU addresses, and branch destinations remain candidates.\n\n## Native round-trip patch command
 
 Both builders use the same CLI and patch semantics:
 
