@@ -10,12 +10,13 @@ else
 EXEEXT ?=
 endif
 
-.PHONY: all native c cpp disasm-native cli release-binaries test test-python test-native test-cli dev-env dev-env-help rom-build-help rom-project rom-build example-rom example-inspect examples-help clean help
-all: native cli
+.PHONY: all native analysis-native c cpp disasm-native cli release-binaries test test-python test-native test-analysis-native test-cli dev-env dev-env-help rom-build-help rom-project rom-build example-rom example-inspect examples-help clean help
+all: native analysis-native cli
 native: c cpp disasm-native
 c: $(BUILD_DIR)/nes-native-c$(EXEEXT) $(BUILD_DIR)/nes-rom-build-c$(EXEEXT)
 cpp: $(BUILD_DIR)/nes-native-cpp$(EXEEXT) $(BUILD_DIR)/nes-rom-build-cpp$(EXEEXT)
 disasm-native: $(BUILD_DIR)/nes-disasm-c$(EXEEXT) $(BUILD_DIR)/nes-disasm-cpp$(EXEEXT)
+analysis-native: $(BUILD_DIR)/rom-manifest-c$(EXEEXT) $(BUILD_DIR)/rom-manifest-cpp$(EXEEXT) $(BUILD_DIR)/nes-chr-c$(EXEEXT) $(BUILD_DIR)/nes-chr-cpp$(EXEEXT) $(BUILD_DIR)/nes-apu-c$(EXEEXT) $(BUILD_DIR)/nes-apu-cpp$(EXEEXT)
 cli: $(BUILD_DIR)/nes-dev-env
 $(BUILD_DIR):
 	mkdir -p "$@"
@@ -31,6 +32,20 @@ $(BUILD_DIR)/nes-disasm-c$(EXEEXT): analysis/nes_disasm_native.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) "$<" -o "$@"
 $(BUILD_DIR)/nes-disasm-cpp$(EXEEXT): analysis/nes_disasm_native.cpp analysis/nes_disasm_native.c | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) "$<" -o "$@"
+
+$(BUILD_DIR)/rom-manifest-c$(EXEEXT): ../tools/rom_manifest.c ../common/sha256.h | $(BUILD_DIR)
+	$(CC) $(CFLAGS) "$<" -o "$@"
+$(BUILD_DIR)/rom-manifest-cpp$(EXEEXT): ../tools/rom_manifest.cpp ../common/sha256.h | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) "$<" -o "$@"
+$(BUILD_DIR)/nes-chr-c$(EXEEXT): ../graphics/nes_chr_viewer.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) "$<" -o "$@"
+$(BUILD_DIR)/nes-chr-cpp$(EXEEXT): ../graphics/nes_chr_viewer.cpp | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) "$<" -o "$@"
+$(BUILD_DIR)/nes-apu-c$(EXEEXT): ../audio/nes_apu_log.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) "$<" -o "$@"
+$(BUILD_DIR)/nes-apu-cpp$(EXEEXT): ../audio/nes_apu_log.cpp | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) "$<" -o "$@"
+
 $(BUILD_DIR)/nes-dev-env: analysis/nes_dev_environment.py | $(BUILD_DIR)
 	@printf '%s\n' '#!/bin/sh' 'exec python3 analysis/nes_dev_environment.py "$$@"' > "$@"
 	chmod +x "$@"
@@ -59,7 +74,9 @@ test-native: native
 	test -s "$(BUILD_DIR)/test-output/disasm-c/synthetic-native/disassembly.asm"; test -s "$(BUILD_DIR)/test-output/disasm-cpp/synthetic-native/disassembly.asm"
 test-cli: cli
 	$(BUILD_DIR)/nes-dev-env --help >/dev/null
-test: test-python test-native test-cli
+test-analysis-native: analysis-native
+	python3 ../scripts/native_tooling_smoke.py "$(BUILD_DIR)"
+test: test-python test-native test-analysis-native test-cli
 examples-help:
 	@cat examples/README.md
 example-rom:
@@ -83,4 +100,4 @@ dev-env:
 clean:
 	rm -rf "$(BUILD_DIR)" build-cmake rom-analysis-output .nes-analysis-stage-*
 help:
-	@echo 'make [all|native|c|cpp|cli|release-binaries|test|test-python|test-native|test-cli|examples-help|example-rom [OUTPUT=...]|example-inspect ROM=... [TITLE=...] [OUT=...]|dev-env ROM=... [TITLE=...] [OUT=...] [TRACE=...]|rom-project ROM=... [PROJECT=...] [TITLE=...]|rom-build PROJECT=... [OUTPUT=...]|clean]'
+	@echo 'make [all|native|analysis-native|c|cpp|cli|release-binaries|test|test-python|test-native|test-analysis-native|test-cli|examples-help|example-rom [OUTPUT=...]|example-inspect ROM=... [TITLE=...] [OUT=...]|dev-env ROM=... [TITLE=...] [OUT=...] [TRACE=...]|rom-project ROM=... [PROJECT=...] [TITLE=...]|rom-build PROJECT=... [OUTPUT=...]|clean]'

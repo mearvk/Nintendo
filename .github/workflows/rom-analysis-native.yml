@@ -7,6 +7,11 @@ on:
       - 'professional-editor/examples/**'
       - 'professional-editor/Makefile'
       - 'professional-editor/CMakeLists.txt'
+      - 'common/**'
+      - 'tools/**'
+      - 'graphics/**'
+      - 'audio/**'
+      - 'scripts/native_tooling_smoke.py'
       - '.github/workflows/rom-analysis-native.yml'
   pull_request:
     paths:
@@ -14,6 +19,11 @@ on:
       - 'professional-editor/examples/**'
       - 'professional-editor/Makefile'
       - 'professional-editor/CMakeLists.txt'
+      - 'common/**'
+      - 'tools/**'
+      - 'graphics/**'
+      - 'audio/**'
+      - 'scripts/native_tooling_smoke.py'
       - '.github/workflows/rom-analysis-native.yml'
   workflow_dispatch:
 permissions:
@@ -36,7 +46,7 @@ jobs:
         run: |
           make test
           mkdir -p dist
-          cp build/nes-native-c build/nes-native-cpp build/nes-rom-build-c build/nes-rom-build-cpp build/nes-disasm-c build/nes-disasm-cpp dist/
+          cp build/nes-native-c build/nes-native-cpp build/nes-rom-build-c build/nes-rom-build-cpp build/nes-disasm-c build/nes-disasm-cpp build/rom-manifest-c build/rom-manifest-cpp build/nes-chr-c build/nes-chr-cpp build/nes-apu-c build/nes-apu-cpp dist/
           chmod +x dist/*
           cat > dist/README.md <<'EOF'
           NES ROM Native Tools
@@ -64,6 +74,13 @@ jobs:
           Copy-Item build-cmake/Release/nes-rom-build-cpp.exe dist/
           Copy-Item build-cmake/Release/nes-disasm-c.exe dist/
           Copy-Item build-cmake/Release/nes-disasm-cpp.exe dist/
+          Copy-Item build-cmake/Release/rom-manifest-c.exe dist/
+          Copy-Item build-cmake/Release/rom-manifest-cpp.exe dist/
+          Copy-Item build-cmake/Release/nes-chr-c.exe dist/
+          Copy-Item build-cmake/Release/nes-chr-cpp.exe dist/
+          Copy-Item build-cmake/Release/nes-apu-c.exe dist/
+          Copy-Item build-cmake/Release/nes-apu-cpp.exe dist/
+          python ../scripts/native_tooling_smoke.py build-cmake/Release
           @'
           NES ROM Native Tools (Windows)
           ==============================
