@@ -246,7 +246,10 @@ def analyze(rom, outroot, tracepath=None):
         f"- PRG bank windows: {len(bankresults)}",f"- Instruction candidates: {len(instructions)}",
         f"- Complete CHR tiles: {result['graphics']['complete_tile_count']}",
         f"- Unique CHR patterns: {result['graphics']['unique_tile_patterns']}",
-        f"- Gameplay hypotheses: {len(result['gameplay_hypotheses'])}","","## Limitations"]
+        f"- Gameplay hypotheses: {len(result['gameplay_hypotheses'])}",
+        f"- Circuit nodes/edges: {circuit['node_count']}/{circuit['edge_count']}",
+        f"- Loop candidates: {len(circuit['loops'])}",
+        f"- Action candidates: {len(circuit['action_assessments'])}","","## Limitations"]
     summary += ["- "+x for x in result["limitations"]]
     summary += ["","See analysis.json for evidence and confidence. disassembly.txt is a candidate linear sweep, not verified source reconstruction."]
     (out/"analysis-summary.md").write_text("\n".join(summary)+"\n",encoding="utf-8")
