@@ -17,7 +17,7 @@ OPS = {
 0xC0:("CPY","imm"),0xC1:("CMP","izx"),0xC4:("CPY","zp"),0xC5:("CMP","zp"),0xC6:("DEC","zp"),0xC8:("INY","imp"),0xC9:("CMP","imm"),0xCA:("DEX","imp"),0xCC:("CPY","abs"),0xCD:("CMP","abs"),0xCE:("DEC","abs"),
 0xD0:("BNE","rel"),0xD1:("CMP","izy"),0xD5:("CMP","zpx"),0xD6:("DEC","zpx"),0xD8:("CLD","imp"),0xD9:("CMP","aby"),0xDD:("CMP","abx"),0xDE:("DEC","abx"),
 0xE0:("CPX","imm"),0xE1:("SBC","izx"),0xE4:("CPX","zp"),0xE5:("SBC","zp"),0xE6:("INC","zp"),0xE8:("INX","imp"),0xE9:("SBC","imm"),0xEA:("NOP","imp"),0xEC:("CPX","abs"),0xED:("SBC","abs"),0xEE:("INC","abs"),
-0xF0:("BEQ","rel"),0xF1:("SBC","izy"),0xF5:("SBC","zpx"),0xF6:("SBC","zpx"),0xF8:("SED","imp"),0xF9:("SBC","aby"),0xFD:("SBC","abx"),0xFE:("INC","abx")}
+0xF0:("BEQ","rel"),0xF1:("SBC","izy"),0xF5:("SBC","zpx"),0xF6:("INC","zpx"),0xF8:("SED","imp"),0xF9:("SBC","aby"),0xFD:("SBC","abx"),0xFE:("INC","abx")}
 LENGTH = {"imp":1,"acc":1,"imm":2,"zp":2,"zpx":2,"zpy":2,"izx":2,"izy":2,"rel":2,"abs":3,"abx":3,"aby":3,"ind":3}
 BRANCHES = {"BCC","BCS","BEQ","BMI","BNE","BPL","BVC","BVS"}
 
