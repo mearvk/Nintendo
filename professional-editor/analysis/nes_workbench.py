@@ -4,8 +4,9 @@ from __future__ import annotations
 import argparse, csv, html, importlib.util, json, re, sys
 from collections import Counter
 from pathlib import Path
-import nes_circuit
 HERE = Path(__file__).resolve().parent
+if str(HERE) not in sys.path: sys.path.insert(0, str(HERE))
+import nes_circuit
 
 def load(name, filename):
     spec = importlib.util.spec_from_file_location(name, HERE / filename)
