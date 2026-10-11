@@ -108,3 +108,16 @@ arguments.
 <p align="center"><sub>
   Professional NES ROM tooling · iNES format · clean-room · no copyrighted content
 </sub></p>
+
+
+## ROM analysis workbench
+
+The repository now includes a first-pass, read-only analyzer under professional-editor/analysis. It validates common iNES/NES 2.0 region metadata, reports mapper/header information and warnings, scans printable ASCII candidates, records likely interrupt-vector locations, and exports a grayscale PGM sheet of raw CHR-ROM tiles. It does not modify source ROM files.
+
+Run from the professional-editor directory with Python 3.10+:
+
+    python3 analysis/nes_inspect.py /path/to/game.nes
+    python3 analysis/nes_inspect.py game-a.nes game-b.nes --out-dir /path/to/private-analysis
+    python3 -m unittest analysis/test_nes_inspect.py
+
+See professional-editor/docs/ROM-ANALYSIS-WORKBENCH.md for the roadmap covering sprite and animation inference, mapper-aware 6502 disassembly, settings, game-state logic, control-flow analysis, and emulator trace correlation. Those advanced capabilities are not claimed by the first-pass tool yet. User-owned ROMs, saves, patches, and generated tile sheets are ignored by Git; do not commit game ROMs or extracted copyrighted assets.
