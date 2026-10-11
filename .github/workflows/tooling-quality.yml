@@ -1,0 +1,44 @@
+name: Tooling Quality
+on:
+  push:
+    branches: [main, master, feature/five-priority-hardening]
+    paths:
+      - "tools/**"
+      - "graphics/**"
+      - "audio/**"
+      - "manifests/**"
+      - "tests/**"
+      - "docs/hardware/**"
+      - ".github/workflows/tooling-quality.yml"
+  pull_request:
+    paths:
+      - "tools/**"
+      - "graphics/**"
+      - "audio/**"
+      - "manifests/**"
+      - "tests/**"
+      - "docs/hardware/**"
+      - ".github/workflows/tooling-quality.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: tooling-quality-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  python-tools:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.12"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Compile tools and tests
+        run: python -m compileall -q tools graphics audio tests
+      - name: Run ROM-free regression suite
+        run: python -m unittest discover -s tests -p "test_*.py" -v
