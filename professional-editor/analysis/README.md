@@ -10,7 +10,7 @@ From the professional-editor directory:
     make test
     make dev-env-help
 
-Run build/nes-native-c ROM.nes or build/nes-native-cpp ROM.nes for native header inspection. CMake is also supported via cmake -S . -B build-cmake && cmake --build build-cmake. Native tools currently report iNES/NES 2.0 header metadata and mapper/PRG/CHR sizes; they are not yet feature-equivalent to the Python pipeline.
+Run build/nes-native-c ROM.nes or build/nes-native-cpp ROM.nes for native header inspection. The build also creates build/nes-dev-env, a terminal CLI wrapper; from professional-editor, run build/nes-dev-env /path/to/game.nes. CMake is also supported via cmake -S . -B build-cmake && cmake --build build-cmake. Native tools currently report iNES/NES 2.0 header metadata and mapper/PRG/CHR sizes; they are not yet feature-equivalent to the Python pipeline.
 
 ## Generate a per-title terminal workspace
 
