@@ -15,6 +15,38 @@ def load(name, filename):
 inspect_mod = load("nes_inspect", "nes_inspect.py")
 disasm_mod = load("nes_disasm", "nes_disasm.py")
 
+def _byte_array(value):
+    if isinstance(value, list):
+        try: return bytes(int(x) & 255 for x in value)
+        except (ValueError, TypeError): return None
+    if isinstance(value, str):
+        text=value.strip().replace("0x","").replace(" ","").replace(",","")
+        try: return bytes.fromhex(text)
+        except ValueError: return None
+    return None
+
+def _oam_summary(events):
+    snapshots=[]
+    for idx,event in enumerate(events):
+        if not isinstance(event,dict) or "oam" not in event: continue
+        raw=_byte_array(event["oam"])
+        if raw is None or len(raw)<256: continue
+        sprites=[]
+        for n in range(64):
+            y,tile,attr,x=raw[n*4:n*4+4]
+            sprites.append({"index":n,"x":x,"y":y+1,"tile":tile,"attributes":attr,
+                "palette":attr&3,"behind_background":bool(attr&0x20),
+                "flip_horizontal":bool(attr&0x40),"flip_vertical":bool(attr&0x80)})
+        snapshots.append({"event_index":idx,"frame":event.get("frame"),"sprites":sprites})
+    changes=[]
+    for previous,current in zip(snapshots,snapshots[1:]):
+        changed=[s["index"] for s,p in zip(current["sprites"],previous["sprites"]) if s!=p]
+        changes.append({"from_event":previous["event_index"],"to_event":current["event_index"],
+                        "changed_sprite_indices":changed,"changed_count":len(changed)})
+    return {"snapshot_count":len(snapshots),"snapshots":snapshots[:100],
+            "between_snapshot_changes":changes[:100],
+            "note":"Requires an emulator trace event with an OAM field containing 256 byte values or a 512-character hex string."}
+
 def trace_data(path):
     raw = path.read_text(encoding="utf-8")
     rows = list(csv.DictReader(raw.splitlines())) if path.suffix.lower()==".csv" else json.loads(raw)
@@ -37,7 +69,7 @@ def trace_data(path):
         "hot_program_counters":[{"pc":f"0x{k:04X}","hits":v} for k,v in pcs.most_common(100)],
         "input_values":dict(inputs),
         "frequent_memory_writes":[{"address":f"0x{a:04X}","value":f"0x{v:02X}","count":n} for (a,v),n in writes.most_common(100)],
-        "events":events[:10000],
+        "events":events[:10000], "oam_analysis":_oam_summary(events),
         "note":"Aggregates supplied emulator exports; this tool does not launch an emulator."}
 
 def graphics(chr_data):
