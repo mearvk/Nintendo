@@ -17,6 +17,7 @@ The workbench outputs analysis.json, disassembly.txt, analysis-summary.md, the b
 - iNES/NES 2.0 container and region metadata inspection.
 - Conservative candidate PRG bank windows for NROM and basic MMC1/UxROM/CNROM/MMC3 layouts.
 - Linear-sweep decoding of official 6502 opcodes; unknown/unofficial opcodes stay as one-byte directives.
+- Recursive reachability candidate seeded from vectors for NROM; standard NES I/O register address hints for PPU, OAM DMA, APU, and controllers.
 - CHR tile counts, unique pattern counts, and exact duplicate-pattern detection.
 - Branch/call/jump/store/immediate candidate reports, evidence offsets, confidence labels, and broad gameplay/state hypotheses.
 - Aggregation of supplied emulator trace JSON/CSV into hot-PC and memory-write summaries.
