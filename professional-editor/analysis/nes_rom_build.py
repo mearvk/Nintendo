@@ -235,7 +235,8 @@ def build_project(manifest_path, output=None, report_path=None):
         })
     built = bytes(result)
     output_cfg = manifest.get("build", {}).get("output", "build/modified.nes")
-    output_path = Path(output).expanduser().resolve() if output else (root / output_cfg).resolve()
+    output_arg = Path(output).expanduser() if output else Path(output_cfg)
+    output_path = (output_arg if output_arg.is_absolute() else root / output_arg).resolve()
     manifest_abs = manifest_path.resolve()
     protected = {baseline_path, manifest_abs, (root / "rom-project-init.json").resolve()}
     try:
@@ -244,7 +245,8 @@ def build_project(manifest_path, output=None, report_path=None):
         raise ValueError("Output path must remain inside the project directory")
     if output_path in protected:
         raise ValueError("Output path cannot overwrite the baseline or project metadata")
-    report_candidate = Path(report_path).expanduser().resolve() if report_path else (root / "build" / "build-report.json").resolve()
+    report_arg = Path(report_path).expanduser() if report_path else Path("build/build-report.json")
+    report_candidate = (report_arg if report_arg.is_absolute() else root / report_arg).resolve()
     try:
         report_candidate.relative_to(root.resolve())
     except ValueError:
@@ -288,7 +290,7 @@ def build_project(manifest_path, output=None, report_path=None):
         },
         "output_path": str(output_path),
     }
-    report_file = Path(report_path).expanduser().resolve() if report_path else root / "build" / "build-report.json"
+    report_file = report_candidate
     try:
         report_file.relative_to(root.resolve())
     except ValueError:
