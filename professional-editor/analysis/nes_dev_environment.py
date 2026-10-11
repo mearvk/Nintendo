@@ -20,6 +20,7 @@ def generate(rom, output_root, title=None, trace=None, force=False, rules_path=N
     if not rom.is_file():
         raise FileNotFoundError(f"ROM does not exist or is not a file: {rom}")
     title = (title or rom.stem or "Untitled").strip() or "Untitled"
+    provided_rules = nes_advanced.load_rules(rules_path) if rules_path else None
     root = Path(output_root).expanduser().resolve()
     root.mkdir(parents=True, exist_ok=True)
     target = root / ("development-environment-" + slugify(title))
@@ -40,7 +41,7 @@ def generate(rom, output_root, title=None, trace=None, force=False, rules_path=N
         container = analysis.get("container", {})
         header = container.get("header", {})
         instructions = analysis.get("disassembly", {}).get("instructions", [])
-        rules = nes_advanced.load_rules(rules_path) if rules_path else nes_advanced.rules_template(title)
+        rules = provided_rules if provided_rules is not None else nes_advanced.rules_template(title)
         rules.setdefault("title", title)
         advanced = nes_advanced.analyze_advanced(
             header.get("mapper"), int(header.get("prg_rom_bytes_declared") or 0),
