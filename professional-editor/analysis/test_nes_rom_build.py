@@ -86,6 +86,19 @@ class NesRomBuildTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "header edits are disabled"):
                 nes_rom_build.build_project(manifest_path)
 
+    def test_force_does_not_replace_existing_baseline(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            rom = make_rom(root / "first.nes")
+            project = root / "project"
+            nes_rom_build.init_project(rom, project)
+            other = make_rom(root / "second.nes")
+            data = bytearray(other.read_bytes())
+            data[0x110] ^= 1
+            other.write_bytes(data)
+            with self.assertRaisesRegex(FileExistsError, "immutable baseline"):
+                nes_rom_build.init_project(other, project, force=True)
+
     def test_modified_baseline_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
