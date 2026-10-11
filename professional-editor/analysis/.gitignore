@@ -1,0 +1,16 @@
+# Local ROM analysis outputs and user-owned game files
+rom-analysis-output/
+**/rom-analysis-output/
+*.nes
+*.NES
+*.unf
+*.unif
+*.fds
+*.ips
+*.bps
+*.ups
+*.sav
+*.srm
+*.state
+*.ppm
+*.pgm
