@@ -5,6 +5,8 @@ import argparse, csv, html, importlib.util, json, re, sys
 from collections import Counter
 from pathlib import Path
 HERE = Path(__file__).resolve().parent
+if str(HERE) not in sys.path: sys.path.insert(0, str(HERE))
+import nes_circuit
 
 def load(name, filename):
     spec = importlib.util.spec_from_file_location(name, HERE / filename)
@@ -184,6 +186,7 @@ def analyze(rom, outroot, tracepath=None):
     trace=trace_data(tracepath) if tracepath else None
     reachable=reachable_nrom(prg,prgoff) if mapper==0 else {"supported":False,"instructions":[],"note":"Recursive traversal not yet enabled for this mapper."}
     hardware=hardware_register_candidates(instructions)
+    circuit=nes_circuit.analyze_circuit(instructions, trace)
     calls=[i for i in instructions if i.get("mnemonic")=="JSR"]
     jumps=[i for i in instructions if i.get("mnemonic")=="JMP"]
     branches=[i for i in instructions if i.get("flow")=="conditional_branch"]
@@ -224,13 +227,15 @@ def analyze(rom, outroot, tracepath=None):
         "control_flow_candidates":{"calls":calls[:5000],"jumps":jumps[:5000],"branches":branches[:10000],
             "stores":stores[:10000],"immediate_constants":immediates[:10000],
             "note":"Linear sweep may decode data as instructions; no function boundaries are proven."},
-        "gameplay_hypotheses":hypotheses[:15000],"trace_analysis":trace,
+        "gameplay_hypotheses":hypotheses[:15000],"circuit_analysis":circuit,"trace_analysis":trace,
         "confidence_policy":{"high":"directly verified byte or format fact","medium":"structural clue or trace observation","low":"heuristic needing review"},
         "limitations":["Linear disassembly can decode data as instructions.","Bank switching is approximated; unsupported mapper layouts need profiles.",
             "Sprite/background reconstruction requires palettes, nametable/attribute data, OAM and runtime PPU observations.",
             "Settings and RAM address meanings are not proven without evidence and dynamic validation.",
             "This is static analysis, not a full emulator or source decompiler."]}
     (out/"analysis.json").write_text(json.dumps(result,indent=2)+"\n",encoding="utf-8")
+    (out/"circuit-analysis.json").write_text(json.dumps(circuit,indent=2)+"\n",encoding="utf-8")
+    (out/"circuit.dot").write_text(nes_circuit.to_dot(circuit)+"\n",encoding="utf-8")
     with (out/"disassembly.txt").open("w",encoding="utf-8") as f:
         for bank in bankresults:
             f.write(f"\n; {bank['name']} file offset 0x{bank['file_offset']:X} size {bank['size']}\n")
@@ -241,7 +246,10 @@ def analyze(rom, outroot, tracepath=None):
         f"- PRG bank windows: {len(bankresults)}",f"- Instruction candidates: {len(instructions)}",
         f"- Complete CHR tiles: {result['graphics']['complete_tile_count']}",
         f"- Unique CHR patterns: {result['graphics']['unique_tile_patterns']}",
-        f"- Gameplay hypotheses: {len(result['gameplay_hypotheses'])}","","## Limitations"]
+        f"- Gameplay hypotheses: {len(result['gameplay_hypotheses'])}",
+        f"- Circuit nodes/edges: {circuit['node_count']}/{circuit['edge_count']}",
+        f"- Loop candidates: {len(circuit['loops'])}",
+        f"- Action candidates: {len(circuit['action_assessments'])}","","## Limitations"]
     summary += ["- "+x for x in result["limitations"]]
     summary += ["","See analysis.json for evidence and confidence. disassembly.txt is a candidate linear sweep, not verified source reconstruction."]
     (out/"analysis-summary.md").write_text("\n".join(summary)+"\n",encoding="utf-8")
@@ -257,13 +265,13 @@ def analyze(rom, outroot, tracepath=None):
     html_page = """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NES ROM analysis</title>
 <style>body{font:16px system-ui,sans-serif;max-width:1100px;margin:2rem auto;padding:0 1rem;line-height:1.5;color:#202124}h1,h2{line-height:1.2}.tiles{max-width:100%;image-rendering:pixelated;border:1px solid #888;background:#ddd}nav a{margin-right:1rem}table{border-collapse:collapse}th,td{border:1px solid #aaa;padding:.35rem .55rem;text-align:left}tbody tr:nth-child(even){background:#f4f4f4}.note{padding:.8rem;background:#f5f5f5}</style></head><body>
 <h1>NES ROM analysis: """ + html.escape(rom.name) + """</h1>
-<nav><a href="analysis.json">Machine report (JSON)</a><a href="disassembly.txt">Candidate disassembly</a><a href="analysis-summary.md">Summary (Markdown)</a></nav>
+<nav><a href="analysis.json">Machine report (JSON)</a><a href="circuit-analysis.json">Circuit graph (JSON)</a><a href="circuit.dot">Graphviz DOT</a><a href="disassembly.txt">Candidate disassembly</a><a href="analysis-summary.md">Summary (Markdown)</a></nav>
 <p class="note">Static analysis contains hypotheses, not verified source code. Bank mapping and code/data boundaries can be uncertain.</p>
 <h2>Container and code overview</h2><ul><li>Mapper: """ + str(mapper) + """</li><li>PRG bank windows: """ + str(len(bankresults)) + """</li><li>Instruction candidates: """ + str(len(instructions)) + """</li><li>Unique CHR patterns: """ + str(result["graphics"]["unique_tile_patterns"]) + """</li><li>Gameplay/state hypotheses: """ + str(len(result["gameplay_hypotheses"])) + """</li></ul>
-<h2>Raw CHR-ROM tile sheet</h2>""" + image_block + oam_rows + """<h2>Analysis caveats</h2><ul>""" + "".join("<li>"+html.escape(x)+"</li>" for x in result["limitations"]) + """</ul></body></html>"""
+<h2>Circuit-style control-flow analysis</h2><p>Candidate nodes: """ + str(circuit["node_count"]) + """; edges: """ + str(circuit["edge_count"]) + """; loop/repetition candidates: """ + str(len(circuit["loops"]) + len(circuit["repeated_instruction_runs"])) + """; action assessments: """ + str(len(circuit["action_assessments"])) + """. See circuit-analysis.json for sequence edges, branch paths, repeat candidates, and evidence-led action assessments. A return path is not proof of a win state or morally correct action.</p><h2>Raw CHR-ROM tile sheet</h2>""" + image_block + oam_rows + """<h2>Analysis caveats</h2><ul>""" + "".join("<li>"+html.escape(x)+"</li>" for x in result["limitations"]) + """</ul></body></html>"""
     (out/"index.html").write_text(html_page,encoding="utf-8")
     return {"output":str(out),"mapper":mapper,"bank_count":len(bankresults),"instruction_candidates":len(instructions),
-        "tile_count":result["graphics"]["complete_tile_count"]}
+        "tile_count":result["graphics"]["complete_tile_count"],"circuit_nodes":circuit["node_count"],"circuit_edges":circuit["edge_count"],"loop_candidates":len(circuit["loops"])}
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)

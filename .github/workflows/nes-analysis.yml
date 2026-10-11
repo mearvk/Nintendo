@@ -23,4 +23,4 @@ jobs:
         run: python -m compileall -q professional-editor/analysis
       - name: Run ROM-free tests
         working-directory: professional-editor
-        run: python -m unittest analysis/test_nes_inspect.py analysis/test_nes_workbench.py -v
+        run: python -m unittest analysis/test_nes_inspect.py analysis/test_nes_workbench.py analysis/test_nes_circuit.py analysis/test_nes_advanced.py analysis/test_nes_dev_environment.py analysis/test_nes_rom_build.py -v
