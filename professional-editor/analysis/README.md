@@ -14,6 +14,15 @@ make dev-env-help
 
 Run `build/nes-native-c ROM.nes` or `build/nes-native-cpp ROM.nes` for native header inspection. Native patch builders are `build/nes-rom-build-c` and `build/nes-rom-build-cpp`. CMake is also supported via `cmake -S . -B build-cmake && cmake --build build-cmake`.
 
+## Examples
+
+See [`examples/README.md`](../examples/README.md) for complete workflows to inspect an existing ROM, apply a fixed-length byte patch to a copy, and generate a new minimal iNES/NROM teaching ROM. Quick start:
+
+```sh
+make example-rom
+make example-inspect ROM=/path/to/your-game.nes TITLE="My Game"
+```
+
 ## Native fixed-length edits
 
 ```sh
