@@ -234,10 +234,10 @@ def normalize_trace_events(trace):
                            for e in out if "input" in e],
                 "note": "Replay is a trace-derived event list, not an emulator command stream. Timing and button encoding must be confirmed for the source emulator."}}
 
-def mapper_trace_state(mapper, prg_size, events):
+def mapper_trace_state(mapper, prg_size, chr_size, events):
     """Track mapper register writes visible in a supplied trace; this is not CPU emulation."""
     prg_banks = max(1, int(prg_size or 0) // 16384)
-    chr_banks = max(1, int(prg_size or 0) // 8192)
+    chr_banks = max(1, int(chr_size or 0) // 8192)
     state = {"mapper": mapper, "observed_write_count": 0, "snapshots": [], "registers": {}}
     if mapper == 2:
         state["registers"] = {"selected_prg_bank": 0, "fixed_prg_bank": prg_banks - 1}
@@ -301,7 +301,7 @@ def analyze_advanced(mapper, prg_size, instructions, trace=None, rules=None):
             for i in (instructions or []) if _addr(i.get("operand")) is not None
         ][:10000],
         "mapper_state_model": mapper_profile(mapper, prg_size),
-        "mapper_trace_state": mapper_trace_state(mapper, prg_size, events),
+        "mapper_trace_state": mapper_trace_state(mapper, prg_size, 0, events),
         "normalized_trace": {k:v for k,v in normalized.items() if k != "events"},
         "trace_events_normalized": events[:10000],
         "rules_evaluation": evaluate_rules(rules or rules_template(), instructions, trace if isinstance(trace, dict) else None),
