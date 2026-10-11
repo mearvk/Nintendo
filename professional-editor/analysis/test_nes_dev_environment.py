@@ -24,9 +24,11 @@ class DevEnvironmentTests(unittest.TestCase):
                         "sprites/sprite-map.png","sprites/background-tiles.png","sprites/sprite-catalog.csv",
                         "game-logic/overview.md","game-logic/gameplay-hypotheses.md","game-logic/state-and-events.md",
                         "game-logic/memory-map.md","game-logic/action-assessment.md","codes/disassembly/linear-sweep.txt","codes/mapper-analysis.json",
-                        "codes/circuit/circuit-analysis.json","codes/circuit/circuit.dot",
+                        "codes/circuit/circuit-analysis.json","codes/circuit/circuit.dot","codes/advanced-analysis.json","game-logic/game-rules.json","game-logic/rules-evaluation.json","game-logic/rules-evaluation.md",
                         "codes/hardware-registers.md","reports/analysis.json","reports/analysis.html"]:
                 self.assertTrue((out / rel).is_file(), rel)
+            self.assertTrue((out/"game-logic/game-rules.json").is_file())
+            self.assertTrue((out/"codes/advanced-analysis.json").is_file())
             self.assertFalse(json.loads((out/"manifest.json").read_text())["input_rom_copied"])
             self.assertTrue(rom.exists()); self.assertFalse((out/"sample-game.nes").exists())
             self.assertFalse(any(root.glob(".nes-analysis-stage-*")))
