@@ -5,6 +5,11 @@
 #include <string.h>
 #include <stdint.h>
 #include <sys/stat.h>
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 
 typedef struct { size_t off, n; unsigned char *expected, *replacement; } Patch;
 static int hexval(char c) {
@@ -20,8 +25,11 @@ static unsigned char *hexbytes(const char *s, size_t *n) {
     for (i=0;i<len;i+=2) { int a=hexval(s[i]), z=hexval(s[i+1]); if(a<0||z<0){free(b);return NULL;} b[i/2]=(unsigned char)((a<<4)|z); }
     *n=len/2; return b;
 }
-static int same_path(const char *a,const char *b) {
-    return strcmp(a,b)==0;
+static int same_file(const char *a,const char *b) {
+    struct stat sa,sb;
+    if(strcmp(a,b)==0)return 1;
+    if(stat(a,&sa)==0&&stat(b,&sb)==0&&sa.st_dev==sb.st_dev&&sa.st_ino==sb.st_ino)return 1;
+    return 0;
 }
 static int read_all(const char *p, unsigned char **d, size_t *n) {
     FILE *f=fopen(p,"rb"); long z;
@@ -29,14 +37,15 @@ static int read_all(const char *p, unsigned char **d, size_t *n) {
     if(fseek(f,0,SEEK_END)|| (z=ftell(f))<0 || fseek(f,0,SEEK_SET)){fclose(f);return 0;}
     *n=(size_t)z; *d=(unsigned char*)malloc(*n?*n:1);
     if(!*d){fclose(f);return 0;}
-    if(fread(*d,1,*n,f)!=*n){fprintf(stderr,"%s: read failed\n",p);free(*d);fclose(f);return 0;}
+    if(fread(*d,1,*n,f)!=*n){fprintf(stderr,"%s: read failed\n",p);free(*d);*d=NULL;fclose(f);return 0;}
     fclose(f);return 1;
 }
 static int write_atomic(const char *out,const unsigned char *d,size_t n) {
-    char tmp[4096]; FILE *f;
+    char tmp[4096]; FILE *f; int failed;
     if(snprintf(tmp,sizeof tmp,"%s.tmp",out)>=(int)sizeof tmp){fprintf(stderr,"output path too long\n");return 0;}
     f=fopen(tmp,"wb"); if(!f){fprintf(stderr,"%s: %s\n",tmp,strerror(errno));return 0;}
-    if(fwrite(d,1,n,f)!=n || fclose(f)!=0){remove(tmp);fprintf(stderr,"write failed\n");return 0;}
+    failed=(fwrite(d,1,n,f)!=n); if(fclose(f)!=0)failed=1;
+    if(failed){remove(tmp);fprintf(stderr,"write failed\n");return 0;}
     if(rename(tmp,out)!=0){fprintf(stderr,"cannot rename temporary output: %s\n",strerror(errno));remove(tmp);return 0;}
     return 1;
 }
@@ -60,7 +69,7 @@ int main(int argc,char **argv) {
         } else { fprintf(stderr,"unknown or incomplete argument: %s\n",argv[i]);bad=1;break; }
     }
     if(bad||!input||!output){fprintf(stderr,"Usage: %s --input ORIGINAL.nes --output MODIFIED.nes [--patch OFFSET EXPECTED_HEX REPLACEMENT_HEX ...]\n",argv[0]);return 2;}
-    if(same_path(input,output)){fprintf(stderr,"input and output paths must differ\n");bad=1;goto done;}
+    if(same_file(input,output)){fprintf(stderr,"input and output resolve to the same file\n");bad=1;goto done;}
     if(!read_all(input,&data,&n)) {bad=1;goto done;}
     if(n<16||memcmp(data,"NES\032",4)){fprintf(stderr,"invalid or truncated iNES header\n");bad=1;goto done;}
     for(i=0;i<np;i++) {
