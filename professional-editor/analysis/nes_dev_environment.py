@@ -97,7 +97,7 @@ def generate(rom, output_root, title=None, trace=None, force=False):
             "The analyzer does not assign an intrinsic moral verdict to opcodes. It records evidence that can support a testable engineering judgment: an action is provisionally right for a specified game rule when its preconditions are satisfied, its effects advance the documented objective, it respects invariants and constraints, and runtime tests confirm the expected result. If the objective or constraints are unknown, the judgment remains undetermined.", "",
             "A path toward RTS/RTI/BRK is not a win-state detector. Identifying win, loss, scoring, collision, menu, or progression logic requires semantic mapping and runtime evidence.", "",
             "See ../codes/circuit/circuit-analysis.json for the node/edge graph and ../codes/circuit/circuit.dot for Graphviz rendering."]
-        write_text(target / "game-logic/action-assessment.md", "\\n".join(action_lines))
+        write_text(target / "game-logic/action-assessment.md", "\n".join(action_lines))
         write_text(target / "game-logic/state-and-events.md", "# State and Events Notebook\n\n| State/event | Evidence | Trigger | Effect | Confidence |\n|---|---|---|---|---|\n| TODO | TODO | TODO | TODO | unverified |")
         write_text(target / "game-logic/memory-map.md", "# Memory Map Investigation\n\nRecord address, width, read/write sites, observed values, scene, evidence, and confidence. Game-specific RAM labels require validation.")
         regs = analysis.get("hardware_register_candidates", [])
