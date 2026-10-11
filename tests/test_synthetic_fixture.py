@@ -17,7 +17,7 @@ SPEC.loader.exec_module(MODULE)
 class SyntheticNESTests(unittest.TestCase):
     def test_header_and_declared_lengths(self):
         data = MODULE.build_synthetic_rom()
-        self.assertEqual(data[:4], b"NES\\x1a")
+        self.assertEqual(data[:4], b"NES\x1a")
         self.assertEqual(data[4], 1)
         self.assertEqual(data[5], 1)
         self.assertEqual(len(data), 16 + 0x4000 + 0x2000)
@@ -25,7 +25,7 @@ class SyntheticNESTests(unittest.TestCase):
     def test_reset_vector(self):
         data = MODULE.build_synthetic_rom()
         prg_start = 16
-        self.assertEqual(data[prg_start + 0x3FFC:prg_start + 0x3FFE], b"\\x00\\x80")
+        self.assertEqual(data[prg_start + 0x3FFC:prg_start + 0x3FFE], b"\x00\x80")
 
     def test_deterministic_output(self):
         self.assertEqual(MODULE.build_synthetic_rom(), MODULE.build_synthetic_rom())
@@ -41,7 +41,7 @@ class SyntheticNESTests(unittest.TestCase):
             )
             self.assertTrue(output.is_file())
             data = output.read_bytes()
-            self.assertEqual(data[:4], b"NES\\x1a")
+            self.assertEqual(data[:4], b"NES\x1a")
             self.assertEqual(len(data), 16 + 0x4000 + 0x2000)
             self.assertIn(str(output), result.stdout)
 
