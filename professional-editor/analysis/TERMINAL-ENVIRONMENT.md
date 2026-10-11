@@ -16,7 +16,7 @@ By default the output is in the current directory as `development-environment-TI
 - `title-description.md`: editable synopsis and research notes.
 - `source-rom/rom-metadata.json`: metadata only; the ROM itself is not copied.
 - `sprites/`: grayscale CHR tile maps and a CSV catalog of raw tile patterns.
-- `game-logic/`: overview, gameplay hypotheses, and state/memory-map notebooks.
+- `game-logic/`: overview, gameplay hypotheses, state/memory-map notebooks, and evidence-led action assessment.\n- `codes/circuit/`: JSON circuit graph and Graphviz DOT, including sequence edges, branches, loop candidates, and action evidence.
 - `codes/disassembly/linear-sweep.txt`: candidate 6502/2A03 disassembly.
 - `codes/mapper-analysis.json`: full machine report with approximate mapper findings.
 - `codes/hardware-registers.md`: standard hardware-register candidates.
@@ -24,6 +24,6 @@ By default the output is in the current directory as `development-environment-TI
 - `reports/`: JSON, Markdown, and HTML reports.
 - `manifest.json`: input identity, counts, and limitations.
 
-## Limits and safety
+## Circuit and right-action analysis\n\nThe circuit graph treats decoded instructions as nodes and candidate control-flow transitions as edges. It flags sequence/order, conditional branches, calls, backward-edge loop candidates, adjacent repeated instruction runs, and paths toward return-like opcodes. The action assessment compares available precondition/control-flow clues, repeat membership, possible terminal paths, and optional runtime trace support. It intentionally leaves right-action judgments undetermined until game objectives, constraints, side effects, and runtime outcomes are established. See `CIRCUIT-AND-ACTION-ANALYSIS.md`.\n\n## Limits and safety
 
 The ROM is read-only and is not copied into the workspace. Raw CHR patterns are not necessarily complete sprites; palettes, OAM, nametables, and runtime observations are needed for faithful scene reconstruction. Disassembly and mapper mapping are heuristic, so game-logic findings are hypotheses. The program aggregates traces but does not launch an emulator or decompile original source code.
