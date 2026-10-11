@@ -244,6 +244,13 @@ def build_project(manifest_path, output=None, report_path=None):
         raise ValueError("Output path must remain inside the project directory")
     if output_path in protected:
         raise ValueError("Output path cannot overwrite the baseline or project metadata")
+    report_candidate = Path(report_path).expanduser().resolve() if report_path else (root / "build" / "build-report.json").resolve()
+    try:
+        report_candidate.relative_to(root.resolve())
+    except ValueError:
+        raise ValueError("Report path must remain inside the project directory")
+    if report_candidate in protected or report_candidate == output_path:
+        raise ValueError("Report path cannot overwrite the baseline, project metadata, or output ROM")
     out_info = inspect_rom(built)
     if len(built) != len(original):
         raise ValueError("Output size changed unexpectedly")
