@@ -1,0 +1,26 @@
+name: NES ROM Analysis Tests
+
+on:
+  push:
+    paths:
+      - "professional-editor/analysis/**"
+      - ".github/workflows/nes-analysis.yml"
+  pull_request:
+    paths:
+      - "professional-editor/analysis/**"
+      - ".github/workflows/nes-analysis.yml"
+  workflow_dispatch:
+
+jobs:
+  synthetic-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile Python sources
+        run: python -m compileall -q professional-editor/analysis
+      - name: Run ROM-free tests
+        working-directory: professional-editor
+        run: python -m unittest analysis/test_nes_inspect.py analysis/test_nes_workbench.py -v
