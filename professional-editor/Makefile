@@ -17,7 +17,7 @@ $(BUILD_DIR)/nes-native-c: analysis/nes_native.c | $(BUILD_DIR)
 $(BUILD_DIR)/nes-native-cpp: analysis/nes_native.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) "$<" -o "$@"
 $(BUILD_DIR)/nes-dev-env: analysis/nes_dev_environment.py | $(BUILD_DIR)
-	@printf '%s\n' '#!/bin/sh' 'SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"' 'exec python3 "$SCRIPT_DIR/analysis/nes_dev_environment.py" "$@"' > "$@"
+	@printf '%s\n' '#!/bin/sh' 'exec python3 analysis/nes_dev_environment.py "$$@"' > "$@"
 	chmod +x "$@"
 test-python:
 	python3 -m py_compile analysis/nes_inspect.py analysis/nes_disasm.py analysis/nes_workbench.py analysis/nes_dev_environment.py
