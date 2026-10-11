@@ -5,7 +5,7 @@ import nes_dev_environment
 
 class DevEnvironmentTests(unittest.TestCase):
     def make_rom(self, path):
-        header = bytearray(b"NES\\x1a" + bytes([1, 1]) + bytes(10))
+        header = bytearray(b"NES\x1a" + bytes([1, 1]) + bytes(10))
         prg = bytearray([0xEA] * 16384)
         prg[-6:] = bytes([0x00, 0x80, 0x00, 0x80, 0x00, 0x80])
         path.write_bytes(header + prg + bytes(8192))
