@@ -44,8 +44,9 @@ jobs:
           These executables were built for the operating system attached to this artifact.
           nes-native-c / nes-native-cpp inspect iNES/NES 2.0 headers and write summary reports.
           nes-rom-build-c / nes-rom-build-cpp apply reviewed fixed-length byte patches.
+          nes-disasm-c / nes-disasm-cpp create conservative 6502/2A03 linear-sweep reports.
           Run each tool with --help for usage. Keep the original ROM and write edits to a separate output file.
-          The native patch builders do not assemble source code or relocate pointers. The disassemblers do not recover mapper-aware control flow. The disassemblers do not recover mapper-aware control flow.
+          The native patch builders do not assemble source code or relocate pointers. The disassemblers do not recover mapper-aware control flow.
           EOF
       - name: Build and test (Windows)
         if: runner.os == 'Windows'
@@ -61,14 +62,17 @@ jobs:
           Copy-Item build-cmake/Release/nes-native-cpp.exe dist/
           Copy-Item build-cmake/Release/nes-rom-build-c.exe dist/
           Copy-Item build-cmake/Release/nes-rom-build-cpp.exe dist/
+          Copy-Item build-cmake/Release/nes-disasm-c.exe dist/
+          Copy-Item build-cmake/Release/nes-disasm-cpp.exe dist/
           @'
           NES ROM Native Tools (Windows)
           ==============================
           These executables were built for Windows.
           nes-native-c.exe / nes-native-cpp.exe inspect iNES/NES 2.0 headers and write summary reports.
           nes-rom-build-c.exe / nes-rom-build-cpp.exe apply reviewed fixed-length byte patches.
+          nes-disasm-c.exe / nes-disasm-cpp.exe create conservative 6502/2A03 linear-sweep reports.
           Run each tool with --help for usage. Keep the original ROM and write edits to a separate output file.
-          The native patch builders do not assemble source code or relocate pointers.
+          The native patch builders do not assemble source code or relocate pointers. The disassemblers do not recover mapper-aware control flow.
           '@ | Set-Content -Encoding utf8 dist/README.md
       - name: Upload OS-specific native binaries
         uses: actions/upload-artifact@v4
