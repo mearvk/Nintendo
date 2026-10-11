@@ -8,17 +8,19 @@ From the professional-editor directory:
 
 ```sh
 make
+make release-binaries
 make test
 make dev-env-help
 ```
 
-Run `build/nes-native-c ROM.nes` or `build/nes-native-cpp ROM.nes` for native header inspection. Native patch builders are `build/nes-rom-build-c` and `build/nes-rom-build-cpp`. CMake is also supported via `cmake -S . -B build-cmake && cmake --build build-cmake`.
+Run `build/nes-native-c ROM.nes` or `build/nes-native-cpp ROM.nes` for native header inspection. `make release-binaries` builds the four native C/C++ terminal executables for the current OS. The GitHub Actions **NES ROM Analysis Native Build** workflow also publishes OS-specific downloadable artifacts for Linux, macOS, and Windows (including `.exe` files). Native patch builders are `build/nes-rom-build-c` and `build/nes-rom-build-cpp`. CMake is also supported via `cmake -S . -B build-cmake && cmake --build build-cmake`.
 
 ## Examples
 
 See [`examples/README.md`](../examples/README.md) for complete workflows to inspect an existing ROM, apply a fixed-length byte patch to a copy, and generate a new minimal iNES/NROM teaching ROM. Quick start:
 
 ```sh
+make release-binaries
 make example-rom
 make example-inspect ROM=/path/to/your-game.nes TITLE="My Game"
 ```
