@@ -29,7 +29,9 @@ class DevEnvironmentTests(unittest.TestCase):
                 self.assertTrue((out / rel).is_file(), rel)
             self.assertTrue((out/"game-logic/game-rules.json").is_file())
             self.assertTrue((out/"codes/advanced-analysis.json").is_file())
-            self.assertFalse(json.loads((out/"manifest.json").read_text())["input_rom_copied"])
+            self.assertTrue(json.loads((out/"manifest.json").read_text())["input_rom_copied"])
+            self.assertTrue((out/"rom-project/source/original.nes").is_file())
+            self.assertTrue((out/"rom-project/rom-project.json").is_file())
             self.assertTrue(rom.exists()); self.assertFalse((out/"sample-game.nes").exists())
             self.assertFalse(any(root.glob(".nes-analysis-stage-*")))
 
