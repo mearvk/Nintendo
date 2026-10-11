@@ -7,6 +7,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import nes_workbench
 import nes_advanced
+import nes_rom_build
 
 def slugify(value):
     return re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip(".-_")[:96] or "Untitled"
@@ -125,14 +126,16 @@ def generate(rom, output_root, title=None, trace=None, force=False, rules_path=N
         else:
             write_text(target / "traces/README.md", "# Emulator Traces\n\nNo trace supplied. Rerun with --trace path/to/trace.json or CSV to correlate runtime behavior.")
         write_text(target / "title-description.md", f"# {title}\n\n## Title Description\n\nAdd a verified synopsis, genre, setting, objectives, stages, and mechanics. Static analysis cannot reliably infer the complete narrative.\n\n## Container Facts\n\nInput: {rom.name}\nFormat: {container.get('format')}\nMapper: {header.get('mapper')}\nPRG-ROM: {header.get('prg_rom_bytes_declared')} bytes\nCHR-ROM: {header.get('chr_rom_bytes_declared')} bytes\nMirroring: {header.get('mirroring')}\nTrainer: {header.get('trainer_present')}\n\n## Research Notes\n\n- Release region: TODO\n- Developer/publisher: TODO\n- Controls: TODO\n- Game modes and settings: TODO\n- Sources and verification: TODO")
+        build_project = target / "rom-project"
+        nes_rom_build.init_project(rom, build_project, title=title)
         manifest = {"schema_version":"1.0","title":title,"generated_utc":datetime.now(timezone.utc).isoformat(),
-                    "input_filename":rom.name,"input_path":str(rom),"input_rom_copied":False,"format":container.get("format"),
+                    "input_filename":rom.name,"input_path":str(rom),"input_rom_copied":True,"baseline_copy_path":"rom-project/source/original.nes","round_trip_project":"rom-project/rom-project.json","format":container.get("format"),
                     "mapper":header.get("mapper"),"prg_rom_bytes_declared":header.get("prg_rom_bytes_declared"),
                     "chr_rom_bytes_declared":header.get("chr_rom_bytes_declared"),"chr_tile_count":len(chr_data)//16,
                     "instruction_candidates":summary.get("instruction_candidates"),"gameplay_hypotheses":len(hypotheses),
                     "trace_supplied":bool(trace),"limitations":analysis.get("limitations",[])}
         write_text(target / "manifest.json", json.dumps(manifest, indent=2))
-        write_text(target / "README.md", f"# {title} — ROM Development Environment\n\n## Start Here\n\n- title-description.md — title synopsis and research\n- sprites/ — raw CHR tile sheets and CSV catalog\n- game-logic/ — gameplay hypotheses and research notebooks\n- codes/ — candidate disassembly and mapper/register analysis\n- traces/ — optional emulator trace data\n- reports/ — JSON, Markdown, and HTML dashboard\n- manifest.json — input and analysis metadata\n\n## Limits\n\nStatic findings are not recovered source code. Disassembly, mapper mapping, sprite grouping, settings, and gameplay labels may be uncertain. Raw CHR patterns are not necessarily whole sprites. The ROM was not copied or modified.")
+        write_text(target / "README.md", f"# {title} — ROM Development Environment\n\n## Start Here\n\n- title-description.md — title synopsis and research\n- sprites/ — raw CHR tile sheets and CSV catalog\n- game-logic/ — gameplay hypotheses and research notebooks\n- codes/ — candidate disassembly and mapper/register analysis\n- traces/ — optional emulator trace data\n- reports/ — JSON, Markdown, and HTML dashboard\n- manifest.json — input and analysis metadata\n- rom-project/ — immutable baseline copy, editable patch manifest, and rebuilt ROM output\n\n## Rebuild the ROM\n\nEdit rom-project/rom-project.json to enable verified fixed-length patches, then run `python3 analysis/nes_rom_build.py build --project rom-project/rom-project.json`. The original input file remains unchanged; a byte-for-byte baseline copy is stored under rom-project/source/original.nes. See `ROM-ROUND-TRIP.md` for details.\n\n## Limits\n\nStatic findings are not recovered source code. Disassembly, mapper mapping, sprite grouping, settings, and gameplay labels may be uncertain. Raw CHR patterns are not necessarily whole sprites. The input ROM was not modified; a byte-for-byte baseline copy is stored under rom-project/source/original.nes for rebuilding.")
         return target
     finally:
         shutil.rmtree(stage, ignore_errors=True)
