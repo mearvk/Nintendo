@@ -87,7 +87,7 @@ Build with Make or CMake; see [NATIVE-BUILD.md](professional-editor/analysis/NAT
 ## Safety and repository hygiene
 
 - Use ROMs you are legally entitled to inspect or modify.
-- Keep commercial ROMs, saves, patches containing copyrighted material, and extracted copyrighted assets out of commits.
+- Do not add new commercial ROMs, saves, patches containing copyrighted material, or extracted copyrighted assets to commits. The repository tree includes pre-existing top-level archive collections outside the editor workbench; their provenance and redistribution rights have not been verified here. Do not assume those archives are cleared for redistribution, and review/remove them through a separate provenance and licensing audit before describing the entire repository as ROM-free.
 - Preserve originals; write edits to separate paths.
 - Verify expected bytes, bounds, patch overlap, and output reports before using a modified image.
 - Treat static analysis, mapper profiles, branch targets, gameplay hypotheses, and trace findings as evidence with explicit uncertainty—not as proof of complete program behavior.
