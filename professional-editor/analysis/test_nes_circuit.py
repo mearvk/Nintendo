@@ -10,11 +10,11 @@ spec.loader.exec_module(circuit)
 class CircuitTests(unittest.TestCase):
     def test_order_branch_loop_and_action_assessment(self):
         ins=[
-            {"cpu_address_candidate":"0x8000","file_offset":16,"mnemonic":"LDA","operand":"#0x01","bytes":[169,1]},
-            {"cpu_address_candidate":"0x8002","file_offset":18,"mnemonic":"STA","operand":"0x0002","bytes":[133,2]},
-            {"cpu_address_candidate":"0x8004","file_offset":20,"mnemonic":"CMP","operand":"#0x03","bytes":[201,3]},
-            {"cpu_address_candidate":"0x8006","file_offset":22,"mnemonic":"BNE","operand":"0x8002","target_cpu_address":"0x8002","flow":"conditional_branch","bytes":[208,250]},
-            {"cpu_address_candidate":"0x8008","file_offset":24,"mnemonic":"RTS","operand":"","flow":"return","bytes":[96]},
+            {"cpu_address_candidate":"0x8000","file_offset":16,"mnemonic":"LDA","operand":"#0x01","bytes":[169,1],"size":2,"bank":"test"},
+            {"cpu_address_candidate":"0x8002","file_offset":18,"mnemonic":"STA","operand":"0x0002","bytes":[133,2],"size":2,"bank":"test"},
+            {"cpu_address_candidate":"0x8004","file_offset":20,"mnemonic":"CMP","operand":"#0x03","bytes":[201,3],"size":2,"bank":"test"},
+            {"cpu_address_candidate":"0x8006","file_offset":22,"mnemonic":"BNE","operand":"0x8002","target_cpu_address":"0x8002","flow":"conditional_branch","bytes":[208,250],"size":2,"bank":"test"},
+            {"cpu_address_candidate":"0x8008","file_offset":24,"mnemonic":"RTS","operand":"","flow":"return","bytes":[96],"size":1,"bank":"test"},
         ]
         result=circuit.analyze_circuit(ins)
         self.assertGreaterEqual(result["edge_count"],4)
