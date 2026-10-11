@@ -4,7 +4,7 @@ CXX ?= c++
 CFLAGS ?= -O2 -std=c99 -Wall -Wextra -Wpedantic
 CXXFLAGS ?= -O2 -std=c++17 -Wall -Wextra -Wpedantic
 BUILD_DIR ?= build
-.PHONY: all native c cpp cli test test-python test-native test-cli dev-env dev-env-help rom-build-help rom-project rom-build clean help
+.PHONY: all native c cpp cli test test-python test-native test-cli dev-env dev-env-help rom-build-help rom-project rom-build example-rom example-inspect examples-help clean help
 all: native cli
 native: c cpp
 c: $(BUILD_DIR)/nes-native-c $(BUILD_DIR)/nes-rom-build-c
@@ -24,8 +24,8 @@ $(BUILD_DIR)/nes-dev-env: analysis/nes_dev_environment.py | $(BUILD_DIR)
 	@printf '%s\n' '#!/bin/sh' 'exec python3 analysis/nes_dev_environment.py "$$@"' > "$@"
 	chmod +x "$@"
 test-python:
-	python3 -m py_compile analysis/nes_inspect.py analysis/nes_disasm.py analysis/nes_workbench.py analysis/nes_dev_environment.py analysis/nes_circuit.py analysis/nes_advanced.py analysis/nes_rom_build.py
-	python3 -m unittest analysis/test_nes_inspect.py analysis/test_nes_workbench.py analysis/test_nes_circuit.py analysis/test_nes_advanced.py analysis/test_nes_dev_environment.py analysis/test_nes_rom_build.py -v
+	python3 -m py_compile analysis/nes_inspect.py analysis/nes_disasm.py analysis/nes_workbench.py analysis/nes_dev_environment.py analysis/nes_circuit.py analysis/nes_advanced.py analysis/nes_rom_build.py examples/create_minimal_rom.py examples/inspect_existing.py
+	python3 -m unittest analysis/test_nes_inspect.py analysis/test_nes_workbench.py analysis/test_nes_circuit.py analysis/test_nes_advanced.py analysis/test_nes_dev_environment.py analysis/test_nes_rom_build.py examples/test_examples.py -v
 test-native: native
 	@set -eu; mkdir -p "$(BUILD_DIR)/test-output"; python3 -c "from pathlib import Path; Path('$(BUILD_DIR)/synthetic.nes').write_bytes(b'NES\\x1a'+bytes([1,1])+bytes(10)+bytes(16384+8192))"; \
 	"$(BUILD_DIR)/nes-native-c" --out-dir "$(BUILD_DIR)/test-output/c" "$(BUILD_DIR)/synthetic.nes"; \
@@ -39,6 +39,13 @@ test-native: native
 test-cli: cli
 	$(BUILD_DIR)/nes-dev-env --help >/dev/null
 test: test-python test-native test-cli
+examples-help:
+	@cat examples/README.md
+example-rom:
+	python3 examples/create_minimal_rom.py --output "$(if $(OUTPUT),$(OUTPUT),$(BUILD_DIR)/examples/minimal.nes)"
+example-inspect:
+	@test -n "$(ROM)" || (echo "Usage: make example-inspect ROM=/path/to/game.nes [TITLE='Game Title'] [OUT=./workspaces]"; exit 2)
+	python3 examples/inspect_existing.py "$(ROM)" $(if $(TITLE),--title "$(TITLE)",) --output-root "$(if $(OUT),$(OUT),./workspaces)"
 dev-env-help:
 	build/nes-dev-env --help
 rom-build-help:
@@ -55,4 +62,4 @@ dev-env:
 clean:
 	rm -rf "$(BUILD_DIR)" build-cmake rom-analysis-output .nes-analysis-stage-*
 help:
-	@echo 'make [all|native|c|cpp|cli|test|test-python|test-native|test-cli|dev-env-help|dev-env ROM=... [TITLE=...] [OUT=...] [TRACE=...]|rom-project ROM=... [PROJECT=...] [TITLE=...]|rom-build PROJECT=... [OUTPUT=...]|clean]'
+	@echo 'make [all|native|c|cpp|cli|test|test-python|test-native|test-cli|examples-help|example-rom [OUTPUT=...]|example-inspect ROM=... [TITLE=...] [OUT=...]|dev-env ROM=... [TITLE=...] [OUT=...] [TRACE=...]|rom-project ROM=... [PROJECT=...] [TITLE=...]|rom-build PROJECT=... [OUTPUT=...]|clean]'
