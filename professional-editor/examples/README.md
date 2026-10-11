@@ -2,7 +2,7 @@
 
 These examples cover three different workflows: inspect an existing ROM, make a controlled edit to an existing ROM, and create a small original NES-format ROM from scratch. They use local files and do not bundle commercial ROMs or copyrighted game assets.
 
-Run commands from `professional-editor/`. Python examples require Python 3.10+. Build native tools first with `make` if you want to use the C or C++ patch builder.
+Run commands from `professional-editor/`. Python examples require Python 3.10+. Build native tools first with `make release-binaries` (or simply `make`) if you want to use the C or C++ patch builder. The CI workflow publishes prebuilt C and C++ executables as separate artifacts for Linux, macOS, and Windows; download the artifact matching your OS from the workflow run's **Artifacts** section.
 
 ## 1. Look at an existing ROM
 
@@ -90,6 +90,7 @@ The generator creates a valid, small NES container with a minimal program and ve
 | Goal | Command |
 |---|---|
 | Build all tools | `make` |
+| Build native C/C++ binaries for this OS | `make release-binaries` |
 | Analyze an existing ROM | `python3 examples/inspect_existing.py ROM.nes` |
 | Generate a new minimal ROM | `python3 examples/create_minimal_rom.py --output build/examples/minimal.nes` |
 | Patch bytes with C | `build/nes-rom-build-c --input IN.nes --output OUT.nes --patch OFFSET EXPECTED REPLACEMENT` |
