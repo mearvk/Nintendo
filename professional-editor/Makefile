@@ -21,7 +21,7 @@ $(BUILD_DIR)/nes-rom-build-c: analysis/nes_rom_build.c | $(BUILD_DIR)
 $(BUILD_DIR)/nes-rom-build-cpp: analysis/nes_rom_build.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) "$<" -o "$@"
 $(BUILD_DIR)/nes-dev-env: analysis/nes_dev_environment.py | $(BUILD_DIR)
-	@printf '%s\\n' '#!/bin/sh' 'exec python3 analysis/nes_dev_environment.py "$$@"' > "$@"
+	@printf '%s\n' '#!/bin/sh' 'exec python3 analysis/nes_dev_environment.py "$$@"' > "$@"
 	chmod +x "$@"
 test-python:
 	python3 -m py_compile analysis/nes_inspect.py analysis/nes_disasm.py analysis/nes_workbench.py analysis/nes_dev_environment.py analysis/nes_circuit.py analysis/nes_advanced.py analysis/nes_rom_build.py
