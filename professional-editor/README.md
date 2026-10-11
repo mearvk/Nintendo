@@ -76,3 +76,28 @@ recommended loop is **dump → script → apply → verify**; the length invaria
 guarantees each rename stays within its slot so the ROM remains valid. The
 SLeeLa model (`sleela/NesEditModel.sleela`) is built to reason about exactly
 these edits before a single byte is written.
+
+
+## ROM analysis workbench
+
+The `analysis/` directory also contains a read-only Python analysis pipeline and native C/C++ tools. From this directory:
+
+```sh
+# Build six native executables for the current OS
+make release-binaries
+
+# Run Python, native-build, and CLI tests
+make test
+
+# Build an analysis workspace from a ROM you own
+python3 analysis/nes_dev_environment.py /path/to/game.nes --title "Research Title"
+
+# Native header inspection and linear-sweep disassembly
+build/nes-native-c /path/to/game.nes
+build/nes-disasm-c --out-dir ./private-analysis /path/to/game.nes
+build/nes-disasm-cpp --out-dir ./private-analysis /path/to/game.nes
+```
+
+The six native executables are `nes-native-c`, `nes-native-cpp`, `nes-rom-build-c`, `nes-rom-build-cpp`, `nes-disasm-c`, and `nes-disasm-cpp`. Make and CMake builds are supported. The GitHub Actions native workflow is configured for Linux, macOS, and Windows artifacts; verify the exact commit's Actions result rather than assuming a workflow configuration means the latest build passed.
+
+The native disassemblers perform a conservative linear sweep over available PRG bytes. They do not emulate mapper state, prove instruction boundaries, or reconstruct original source. The Python workbench provides the broader workspace, trace, rules, and project-manifest workflow. See [the analysis guide](analysis/README.md), [native build guide](analysis/NATIVE-BUILD.md), and [round-trip guide](analysis/ROM-ROUND-TRIP.md).
