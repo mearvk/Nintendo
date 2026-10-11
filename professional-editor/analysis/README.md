@@ -13,7 +13,7 @@ make test
 make dev-env-help
 ```
 
-Run `build/nes-native-c ROM.nes` or `build/nes-native-cpp ROM.nes` for native header inspection, and `build/nes-disasm-c ROM.nes` or `build/nes-disasm-cpp ROM.nes` for native linear-sweep disassembly. `make release-binaries` builds the six native C/C++ terminal executables for the current OS. The GitHub Actions **NES ROM Analysis Native Build** workflow also publishes OS-specific downloadable artifacts for Linux, macOS, and Windows (including `.exe` files). Native patch builders are `build/nes-rom-build-c` and `build/nes-rom-build-cpp`. CMake is also supported via `cmake -S . -B build-cmake && cmake --build build-cmake`.
+Run `build/nes-native-c ROM.nes` or `build/nes-native-cpp ROM.nes` for native header inspection, and `build/nes-disasm-c ROM.nes` or `build/nes-disasm-cpp ROM.nes` for native linear-sweep disassembly. `make release-binaries` builds the six native C/C++ terminal executables for the current OS: two header inspectors, two fixed-length patch builders, and two linear-sweep disassemblers. The GitHub Actions **NES ROM Analysis Native Build** workflow is configured to publish OS-specific downloadable artifacts for Linux, macOS, and Windows (including `.exe` files); verify the Actions result for the exact commit before treating a build as successful. Native patch builders are `build/nes-rom-build-c` and `build/nes-rom-build-cpp`. CMake is also supported via `cmake -S . -B build-cmake && cmake --build build-cmake`.
 
 ## Examples
 
