@@ -4,34 +4,47 @@ CXX ?= c++
 CFLAGS ?= -O2 -std=c99 -Wall -Wextra -Wpedantic
 CXXFLAGS ?= -O2 -std=c++17 -Wall -Wextra -Wpedantic
 BUILD_DIR ?= build
-.PHONY: all native c cpp cli test test-python test-native test-cli dev-env dev-env-help rom-build-help rom-project rom-build example-rom example-inspect examples-help clean help
+ifeq ($(OS),Windows_NT)
+EXEEXT ?= .exe
+else
+EXEEXT ?=
+endif
+
+.PHONY: all native c cpp cli release-binaries test test-python test-native test-cli dev-env dev-env-help rom-build-help rom-project rom-build example-rom example-inspect examples-help clean help
 all: native cli
 native: c cpp
-c: $(BUILD_DIR)/nes-native-c $(BUILD_DIR)/nes-rom-build-c
-cpp: $(BUILD_DIR)/nes-native-cpp $(BUILD_DIR)/nes-rom-build-cpp
+c: $(BUILD_DIR)/nes-native-c$(EXEEXT) $(BUILD_DIR)/nes-rom-build-c$(EXEEXT)
+cpp: $(BUILD_DIR)/nes-native-cpp$(EXEEXT) $(BUILD_DIR)/nes-rom-build-cpp$(EXEEXT)
 cli: $(BUILD_DIR)/nes-dev-env
 $(BUILD_DIR):
 	mkdir -p "$@"
-$(BUILD_DIR)/nes-native-c: analysis/nes_native.c | $(BUILD_DIR)
+$(BUILD_DIR)/nes-native-c$(EXEEXT): analysis/nes_native.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) "$<" -o "$@"
-$(BUILD_DIR)/nes-native-cpp: analysis/nes_native.cpp | $(BUILD_DIR)
+$(BUILD_DIR)/nes-native-cpp$(EXEEXT): analysis/nes_native.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) "$<" -o "$@"
-$(BUILD_DIR)/nes-rom-build-c: analysis/nes_rom_build.c | $(BUILD_DIR)
+$(BUILD_DIR)/nes-rom-build-c$(EXEEXT): analysis/nes_rom_build.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) "$<" -o "$@"
-$(BUILD_DIR)/nes-rom-build-cpp: analysis/nes_rom_build.cpp | $(BUILD_DIR)
+$(BUILD_DIR)/nes-rom-build-cpp$(EXEEXT): analysis/nes_rom_build.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) "$<" -o "$@"
 $(BUILD_DIR)/nes-dev-env: analysis/nes_dev_environment.py | $(BUILD_DIR)
 	@printf '%s\n' '#!/bin/sh' 'exec python3 analysis/nes_dev_environment.py "$$@"' > "$@"
 	chmod +x "$@"
+
+# Build all four native terminal tools for the current operating system.
+# CI publishes the matching OS-specific binaries as downloadable artifacts.
+release-binaries: native
+	@echo "Native C/C++ terminal binaries are ready in $(BUILD_DIR)/"
+	@echo "Executables: nes-native-c$(EXEEXT), nes-native-cpp$(EXEEXT), nes-rom-build-c$(EXEEXT), nes-rom-build-cpp$(EXEEXT)"
+
 test-python:
 	python3 -m py_compile analysis/nes_inspect.py analysis/nes_disasm.py analysis/nes_workbench.py analysis/nes_dev_environment.py analysis/nes_circuit.py analysis/nes_advanced.py analysis/nes_rom_build.py examples/create_minimal_rom.py examples/inspect_existing.py
 	python3 -m unittest analysis/test_nes_inspect.py analysis/test_nes_workbench.py analysis/test_nes_circuit.py analysis/test_nes_advanced.py analysis/test_nes_dev_environment.py analysis/test_nes_rom_build.py examples/test_examples.py -v
 test-native: native
 	@set -eu; mkdir -p "$(BUILD_DIR)/test-output"; python3 -c "from pathlib import Path; Path('$(BUILD_DIR)/synthetic.nes').write_bytes(b'NES\\x1a'+bytes([1,1])+bytes(10)+bytes(16384+8192))"; \
-	"$(BUILD_DIR)/nes-native-c" --out-dir "$(BUILD_DIR)/test-output/c" "$(BUILD_DIR)/synthetic.nes"; \
-	"$(BUILD_DIR)/nes-native-cpp" --out-dir "$(BUILD_DIR)/test-output/cpp" "$(BUILD_DIR)/synthetic.nes"; \
-	"$(BUILD_DIR)/nes-rom-build-c" --input "$(BUILD_DIR)/synthetic.nes" --output "$(BUILD_DIR)/test-output/c-patched.nes" --patch 16 00 01; \
-	"$(BUILD_DIR)/nes-rom-build-cpp" --input "$(BUILD_DIR)/synthetic.nes" --output "$(BUILD_DIR)/test-output/cpp-patched.nes" --patch 16 00 02; \
+	"$(BUILD_DIR)/nes-native-c$(EXEEXT)" --out-dir "$(BUILD_DIR)/test-output/c" "$(BUILD_DIR)/synthetic.nes"; \
+	"$(BUILD_DIR)/nes-native-cpp$(EXEEXT)" --out-dir "$(BUILD_DIR)/test-output/cpp" "$(BUILD_DIR)/synthetic.nes"; \
+	"$(BUILD_DIR)/nes-rom-build-c$(EXEEXT)" --input "$(BUILD_DIR)/synthetic.nes" --output "$(BUILD_DIR)/test-output/c-patched.nes" --patch 16 00 01; \
+	"$(BUILD_DIR)/nes-rom-build-cpp$(EXEEXT)" --input "$(BUILD_DIR)/synthetic.nes" --output "$(BUILD_DIR)/test-output/cpp-patched.nes" --patch 16 00 02; \
 	test "$$(wc -c < "$(BUILD_DIR)/synthetic.nes")" = "$$(wc -c < "$(BUILD_DIR)/test-output/c-patched.nes")"; \
 	test "$$(od -An -tx1 -j16 -N1 "$(BUILD_DIR)/test-output/c-patched.nes" | tr -d ' \\n')" = "01"; \
 	test "$$(od -An -tx1 -j16 -N1 "$(BUILD_DIR)/test-output/cpp-patched.nes" | tr -d ' \\n')" = "02"; \
@@ -47,7 +60,7 @@ example-inspect:
 	@test -n "$(ROM)" || (echo "Usage: make example-inspect ROM=/path/to/game.nes [TITLE='Game Title'] [OUT=./workspaces]"; exit 2)
 	python3 examples/inspect_existing.py "$(ROM)" $(if $(TITLE),--title "$(TITLE)",) --output-root "$(if $(OUT),$(OUT),./workspaces)"
 dev-env-help:
-	build/nes-dev-env --help
+	$(BUILD_DIR)/nes-dev-env --help
 rom-build-help:
 	python3 analysis/nes_rom_build.py --help
 rom-project:
@@ -62,4 +75,4 @@ dev-env:
 clean:
 	rm -rf "$(BUILD_DIR)" build-cmake rom-analysis-output .nes-analysis-stage-*
 help:
-	@echo 'make [all|native|c|cpp|cli|test|test-python|test-native|test-cli|examples-help|example-rom [OUTPUT=...]|example-inspect ROM=... [TITLE=...] [OUT=...]|dev-env ROM=... [TITLE=...] [OUT=...] [TRACE=...]|rom-project ROM=... [PROJECT=...] [TITLE=...]|rom-build PROJECT=... [OUTPUT=...]|clean]'
+	@echo 'make [all|native|c|cpp|cli|release-binaries|test|test-python|test-native|test-cli|examples-help|example-rom [OUTPUT=...]|example-inspect ROM=... [TITLE=...] [OUT=...]|dev-env ROM=... [TITLE=...] [OUT=...] [TRACE=...]|rom-project ROM=... [PROJECT=...] [TITLE=...]|rom-build PROJECT=... [OUTPUT=...]|clean]'
