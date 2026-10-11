@@ -30,6 +30,16 @@ class DisassemblyTests(unittest.TestCase):
         self.assertEqual(banks[0]["cpu_base"],0x8000)
         self.assertEqual(banks[1]["cpu_base"],0xC000)
 class PipelineTests(unittest.TestCase):
+    def test_nrom_reachability_and_io_register_hints(self):
+        prg=bytearray(16384)
+        # Reset vector points to $C000; LDA $4016; RTS.
+        prg[0:4]=bytes([0xAD,0x16,0x40,0x60])
+        prg[-4:-2]=bytes([0x00,0xC0])
+        reachable=workbench.reachable_nrom(bytes(prg),16)
+        self.assertTrue(reachable["supported"])
+        self.assertTrue(any(x["mnemonic"]=="LDA" for x in reachable["instructions"]))
+        hints=workbench.hardware_register_candidates(disasm.disassemble(bytes([0xAD,0x16,0x40]),0xC000,16,"test"))
+        self.assertEqual(hints[0]["register"],"CONTROLLER1_OR_STROBE")
     def test_chr_duplicate_patterns(self):
         r=workbench.graphics(bytes(16)+bytes(16)+bytes(range(16)))
         self.assertEqual(r["complete_tile_count"],3)
