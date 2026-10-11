@@ -31,7 +31,7 @@ class NativeTools(unittest.TestCase):
     def test_core_native_tools(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td); image = root / "synthetic.nes"; synthetic_rom(image)
-            out = root / "out"
+            out = root / "out"; out.mkdir()
             for name in ("nes-native-c", "nes-native-cpp"):
                 run_tool(name, "--out-dir", out / name, image)
                 self.assertTrue((out / name / "synthetic.nes" / "summary.md").is_file())
