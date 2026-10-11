@@ -44,7 +44,8 @@ def generate(rom, output_root, title=None, trace=None, force=False, rules_path=N
         rules.setdefault("title", title)
         advanced = nes_advanced.analyze_advanced(
             header.get("mapper"), int(header.get("prg_rom_bytes_declared") or 0),
-            instructions, analysis.get("trace_analysis"), rules)
+            instructions, analysis.get("trace_analysis"), rules,
+            int(header.get("chr_rom_bytes_declared") or 0))
         analysis["advanced_analysis"] = advanced
         write_text(src / "analysis.json", json.dumps(analysis, indent=2))
         write_text(src / "advanced-analysis.json", json.dumps(advanced, indent=2))
