@@ -2,7 +2,7 @@
 
 These examples cover three different workflows: inspect an existing ROM, make a controlled edit to an existing ROM, and create a small original NES-format ROM from scratch. They use local files and do not bundle commercial ROMs or copyrighted game assets.
 
-Run commands from `professional-editor/`. Python examples require Python 3.10+. Build native tools first with `make release-binaries` (or simply `make`) if you want to use the C or C++ patch builder. The CI workflow publishes prebuilt C and C++ executables as separate artifacts for Linux, macOS, and Windows; download the artifact matching your OS from the workflow run's **Artifacts** section.
+Run commands from `professional-editor/`. Python examples require Python 3.10+. Build native tools first with `make release-binaries` (or simply `make`) if you want to use the C or C++ patch builder. The CI workflow is configured to publish six native C/C++ executables (header inspectors, fixed-length patch builders, and linear-sweep disassemblers) as OS-specific artifacts for Linux, macOS, and Windows; check the exact workflow run to confirm its status; download the artifact matching your OS from the workflow run's **Artifacts** section.
 
 ## 1. Look at an existing ROM
 
@@ -13,11 +13,13 @@ make
 python3 examples/inspect_existing.py /path/to/your-game.nes --title "My Game" --output-root ./workspaces
 ```
 
-This creates a per-title analysis workspace, including metadata, disassembly and other reports supported by the analyzer. It also creates a round-trip project with a byte-for-byte baseline copy. You can additionally run the native header inspectors:
+This creates a per-title analysis workspace, including metadata, disassembly and other reports supported by the analyzer. It also creates a round-trip project with a byte-for-byte baseline copy. You can additionally run the native header inspectors and disassemblers:
 
 ```sh
 build/nes-native-c /path/to/your-game.nes
 build/nes-native-cpp /path/to/your-game.nes
+build/nes-disasm-c --out-dir ./private-analysis /path/to/your-game.nes
+build/nes-disasm-cpp --out-dir ./private-analysis /path/to/your-game.nes
 ```
 
 Use `--help` on the Python script to see all options. Analysis is static unless you separately provide emulator traces; reports may contain hypotheses, not confirmed gameplay behavior.
