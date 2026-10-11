@@ -35,6 +35,16 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(r["complete_tile_count"],3)
         self.assertEqual(r["unique_tile_patterns"],2)
         self.assertEqual(r["duplicate_pattern_groups"][0]["occurrences"],2)
+    def test_oam_snapshot_sprite_extraction(self):
+        oam=[0]*256
+        oam[0:4]=[9,17,0xC2,44]
+        result=workbench._oam_summary([{"frame":3,"oam":oam}])
+        self.assertEqual(result["snapshot_count"],1)
+        sprite=result["snapshots"][0]["sprites"][0]
+        self.assertEqual(sprite["x"],44)
+        self.assertEqual(sprite["y"],10)
+        self.assertTrue(sprite["flip_horizontal"])
+        self.assertTrue(sprite["flip_vertical"])
     def test_trace_json_aggregation(self):
         with tempfile.TemporaryDirectory() as tmp:
             p=Path(tmp)/"trace.json"
