@@ -48,6 +48,14 @@ class AdvancedAnalysisTests(unittest.TestCase):
         report = nes_advanced.evaluate_rules(rules, [{"cpu_address_candidate":"0x8000"}], trace)
         self.assertEqual(report["checks"][0]["status"], "conflicts-with-declared-rule")
 
+    def test_state_assertion_uses_last_observed_write(self):
+        rules = {"schema_version":"1.0","title":"Test","objective":"","constraints":[],
+            "actions":[],"state_assertions":[{"address":"0x0002","operator":"equals","value":7,"label":"lives"}]}
+        trace = {"events":[{"address":"0x0002","value":4},{"address":"0x0002","value":7}]}
+        report = nes_advanced.evaluate_rules(rules, [], trace)
+        state_check = next(x for x in report["checks"] if x.get("criterion") == "state assertion")
+        self.assertEqual(state_check["status"], "consistent-with-declared-rule")
+
     def test_empty_rules_template_has_no_fake_actions(self):
         self.assertEqual(nes_advanced.rules_template("Demo")["actions"], [])
 
