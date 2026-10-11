@@ -44,8 +44,12 @@ The generated workspace includes title description, sprite/tile maps and catalog
 - Normalized JSON trace events and trace-derived input event lists.
 - PPU/OAM/palette/nametable snapshot summaries where those fields exist in the trace.
 
+## Round-trip ROM edits
+
+Use `python3 analysis/nes_rom_build.py init game.nes --project ./projects/game` to create a baseline and editable `rom-project.json`. Enable reviewed fixed-length byte patches with expected original bytes, then run `python3 analysis/nes_rom_build.py build --project ./projects/game/rom-project.json` to create a separate `build/modified.nes` and audit report. Make targets `rom-project` and `rom-build` are also available. This first build stage does not automatically reconstruct source from disassembly; see `ROM-ROUND-TRIP.md` for safeguards and the roadmap to game-specific text/assembler/linker adapters.
+
 ## Current boundaries
 
 The current tools do not launch or control an emulator, single-step the CPU, inject controller inputs, execute mapper register writes, or prove a win/loss condition. Trace-derived replay is an event list, not an emulator command stream. Pixel-accurate scene reconstruction requires synchronized CHR/CHR-RAM, nametable, attribute, palette and OAM data. All game-specific interpretations remain hypotheses until validated.
 
-See `TERMINAL-ENVIRONMENT.md`, `CIRCUIT-AND-ACTION-ANALYSIS.md`, and `ADVANCED-ANALYSIS.md`.
+See `TERMINAL-ENVIRONMENT.md`, `CIRCUIT-AND-ACTION-ANALYSIS.md`, `ADVANCED-ANALYSIS.md`, and `ROM-ROUND-TRIP.md`.
