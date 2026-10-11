@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mearvk/Nintendo/blob/main/manifests/rom-manifest.schema.json",
+  "title": "Nintendo Studio ROM Metadata Manifest",
+  "type": "object",
+  "required": ["schema_version", "title", "platform", "format", "size_bytes", "sha256", "provenance", "rights_status", "redistribution_allowed"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "title": {"type": "string", "minLength": 1},
+    "platform": {"type": "string", "minLength": 1},
+    "region": {"type": ["string", "null"]},
+    "revision": {"type": ["string", "null"]},
+    "format": {"type": "string", "minLength": 1},
+    "size_bytes": {"type": "integer", "minimum": 0},
+    "sha256": {"type": "string", "pattern": "^[a-fA-F0-9]{64}$"},
+    "provenance": {"type": "string", "minLength": 1},
+    "rights_status": {"enum": ["unknown", "personal_dump", "authorized", "redistribution_approved", "public_domain", "original_homebrew"]},
+    "redistribution_allowed": {"type": "boolean"},
+    "analysis_tool": {"type": ["string", "null"]},
+    "tool_version": {"type": ["string", "null"]},
+    "analysis_timestamp": {"type": ["string", "null"], "format": "date-time"},
+    "notes": {"type": "string"}
+  },
+  "additionalProperties": false
+}
