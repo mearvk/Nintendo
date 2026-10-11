@@ -236,12 +236,14 @@ def build_project(manifest_path, output=None, report_path=None):
     built = bytes(result)
     output_cfg = manifest.get("build", {}).get("output", "build/modified.nes")
     output_path = Path(output).expanduser().resolve() if output else (root / output_cfg).resolve()
+    manifest_abs = manifest_path.resolve()
+    protected = {baseline_path, manifest_abs, (root / "rom-project-init.json").resolve()}
     try:
         output_path.relative_to(root.resolve())
     except ValueError:
         raise ValueError("Output path must remain inside the project directory")
-    if output_path == baseline_path:
-        raise ValueError("Output path cannot overwrite the baseline ROM")
+    if output_path in protected:
+        raise ValueError("Output path cannot overwrite the baseline or project metadata")
     out_info = inspect_rom(built)
     if len(built) != len(original):
         raise ValueError("Output size changed unexpectedly")
@@ -284,6 +286,8 @@ def build_project(manifest_path, output=None, report_path=None):
         report_file.relative_to(root.resolve())
     except ValueError:
         raise ValueError("Report path must remain inside the project directory")
+    if report_file in protected or report_file == output_path:
+        raise ValueError("Report path cannot overwrite the baseline, project metadata, or output ROM")
     report_file.parent.mkdir(parents=True, exist_ok=True)
     report_file.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     return report
