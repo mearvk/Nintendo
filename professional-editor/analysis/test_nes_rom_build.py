@@ -99,6 +99,20 @@ class NesRomBuildTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Baseline SHA-256 mismatch"):
                 nes_rom_build.build_project(project / "rom-project.json")
 
+    def test_report_cannot_overwrite_output_rom(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            rom = make_rom(root / "original.nes")
+            project = root / "project"
+            nes_rom_build.init_project(rom, project)
+            with self.assertRaisesRegex(ValueError, "Report path cannot overwrite"):
+                nes_rom_build.build_project(project / "rom-project.json",
+                    output="build/same.bin", report_path="build/same.bin")
+
+    def test_truncated_rom_rejected(self):
+        with self.assertRaisesRegex(ValueError, "ROM is truncated"):
+            nes_rom_build.inspect_rom(b"NES\\x1a" + bytes([1, 1]) + bytes(10))
+
     def test_bad_magic_rejected(self):
         with self.assertRaisesRegex(ValueError, "missing NES"):
             nes_rom_build.inspect_rom(b"not a ROM")
