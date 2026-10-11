@@ -38,12 +38,12 @@ def generate(rom, output_root, title=None, trace=None, force=False):
         analysis = json.loads((src / "analysis.json").read_text(encoding="utf-8"))
         container = analysis.get("container", {})
         header = container.get("header", {})
-        for folder in ("source-rom", "sprites", "game-logic", "codes/disassembly", "traces", "reports"):
+        for folder in ("source-rom", "sprites", "game-logic", "codes/disassembly", "codes/circuit", "traces", "reports"):
             (target / folder).mkdir(parents=True, exist_ok=True)
         shutil.copy2(src / "report.json", target / "source-rom/rom-metadata.json")
         for source, dest in (("analysis.json","reports/analysis.json"), ("analysis-summary.md","reports/analysis-summary.md"),
                              ("index.html","reports/analysis.html"), ("disassembly.txt","codes/disassembly/linear-sweep.txt"),
-                             ("analysis.json","codes/mapper-analysis.json")):
+                             ("analysis.json","codes/mapper-analysis.json"), ("circuit-analysis.json","codes/circuit/circuit-analysis.json"), ("circuit.dot","codes/circuit/circuit.dot")):
             shutil.copy2(src / source, target / dest)
         for name in ("chr-tiles.png", "chr-tiles.pgm"):
             if (src / name).is_file():
@@ -78,6 +78,26 @@ def generate(rom, output_root, title=None, trace=None, force=False):
                   "5. Keep unverified interpretations labeled as hypotheses."]
         write_text(target / "game-logic/gameplay-hypotheses.md", "\n".join(lines))
         write_text(target / "game-logic/overview.md", f"# Game Logic Overview\n\nTitle: {title}\nMapper: {header.get('mapper')}\nPRG bytes: {header.get('prg_rom_bytes_declared')}\nCHR bytes: {header.get('chr_rom_bytes_declared')}\nInstruction candidates: {summary.get('instruction_candidates')}\nHypotheses: {len(hypotheses)}\n\nStart with gameplay-hypotheses.md and validate with runtime traces.")
+        circuit = analysis.get("circuit_analysis", {})
+        action_lines = ["# Action Analysis: Preconditions, Order, Repetition, and Outcomes", "",
+            "## How to interpret this report", "",
+            "This report distinguishes observable code structure from inferred intent. A branch is a decision candidate; a backward edge is a loop candidate; an instruction sequence is only a candidate order. None alone proves a game objective, an ideal path, or moral correctness.", "",
+            "For each candidate action, establish: (1) preconditions and branch guards; (2) the intended objective; (3) state changes and side effects; (4) constraints/invariants; (5) whether repetition is intended, bounded, or accidental; (6) failure/recovery paths; and (7) runtime evidence from controlled traces.", "",
+            "## Action candidates", "",
+            "| Address | Instruction | Category | Repeat candidate | Terminal path | Runtime evidence | Right-action status |", "|---|---|---|---|---|---|---|"]
+        for action in circuit.get("action_assessments", [])[:5000]:
+            checks = {x.get("criterion"): x.get("status") for x in action.get("checks", [])}
+            vals = [action.get("address","?"), action.get("instruction",""), action.get("category",""),
+                    str(action.get("in_repeat_candidate",False)).lower(),
+                    checks.get("can reach return/interrupt-return/BRK candidate","not-established"),
+                    checks.get("observed at runtime","no-matching-trace-evidence"),
+                    action.get("right_action_assessment",{}).get("status","undetermined")]
+            action_lines.append("| " + " | ".join(str(v).replace("|","\\\\|").replace("\\n"," ") for v in vals) + " |")
+        action_lines += ["", "## What 'right action' means here", "",
+            "The analyzer does not assign an intrinsic moral verdict to opcodes. It records evidence that can support a testable engineering judgment: an action is provisionally right for a specified game rule when its preconditions are satisfied, its effects advance the documented objective, it respects invariants and constraints, and runtime tests confirm the expected result. If the objective or constraints are unknown, the judgment remains undetermined.", "",
+            "A path toward RTS/RTI/BRK is not a win-state detector. Identifying win, loss, scoring, collision, menu, or progression logic requires semantic mapping and runtime evidence.", "",
+            "See ../codes/circuit/circuit-analysis.json for the node/edge graph and ../codes/circuit/circuit.dot for Graphviz rendering."]
+        write_text(target / "game-logic/action-assessment.md", "\\n".join(action_lines))
         write_text(target / "game-logic/state-and-events.md", "# State and Events Notebook\n\n| State/event | Evidence | Trigger | Effect | Confidence |\n|---|---|---|---|---|\n| TODO | TODO | TODO | TODO | unverified |")
         write_text(target / "game-logic/memory-map.md", "# Memory Map Investigation\n\nRecord address, width, read/write sites, observed values, scene, evidence, and confidence. Game-specific RAM labels require validation.")
         regs = analysis.get("hardware_register_candidates", [])
@@ -117,7 +137,7 @@ def main(argv=None):
         return 2
     print(f"Workspace created: {out}")
     for label, path in [("Title description",out/"title-description.md"),("Sprite catalog",out/"sprites/sprite-catalog.csv"),
-                        ("Game logic",out/"game-logic/gameplay-hypotheses.md"),("Disassembly",out/"codes/disassembly/linear-sweep.txt"),
+                        ("Game logic",out/"game-logic/gameplay-hypotheses.md"),("Circuit graph",out/"codes/circuit/circuit.dot"),("Action assessment",out/"game-logic/action-assessment.md"),("Disassembly",out/"codes/disassembly/linear-sweep.txt"),
                         ("HTML dashboard",out/"reports/analysis.html")]:
         print(f"{label}: {path}")
     print("Static-analysis findings are hypotheses until validated with runtime evidence.")
