@@ -31,6 +31,10 @@ Example JSON:
 5. Control-flow candidates: branch, call, jump, store and immediate-constant listings, with file offsets and CPU-address candidates.
 6. Gameplay hypotheses and traces: low-confidence static candidates plus hot PCs and frequent memory writes from a supplied trace.
 
+## Native command-line tools
+
+The separate native C99/C++17 tools currently provide header inspection, fixed-length patching, and conservative linear-sweep disassembly. Build them from `professional-editor/` with `make release-binaries`, then use `build/nes-disasm-c --out-dir ./private-analysis /path/to/game.nes` or the corresponding `nes-disasm-cpp` command. The native tools do not yet reproduce the full Python workspace, mapper-aware execution, trace aggregation, or project-manifest round trip. See [NATIVE-BUILD.md](../analysis/NATIVE-BUILD.md).
+
 ## Follow-on work required for a complete workbench
 
 - Stateful mapper-register analysis and more mapper profiles.
