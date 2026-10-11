@@ -34,7 +34,8 @@ class NativeTools(unittest.TestCase):
             out = root / "out"; out.mkdir()
             for name in ("nes-native-c", "nes-native-cpp"):
                 run_tool(name, "--out-dir", out / name, image)
-                self.assertTrue((out / name / "synthetic.nes" / "summary.md").is_file())
+                folder = "synthetic.nes" if name == "nes-native-c" else "synthetic"
+                self.assertTrue((out / name / folder / "summary.md").is_file())
             for name in ("nes-disasm-c", "nes-disasm-cpp"):
                 run_tool(name, "--out-dir", out / name, image)
                 self.assertTrue((out / name / "synthetic-native" / "disassembly.asm").is_file())
