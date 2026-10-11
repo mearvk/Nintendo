@@ -40,6 +40,18 @@ class PipelineTests(unittest.TestCase):
         self.assertTrue(any(x["mnemonic"]=="LDA" for x in reachable["instructions"]))
         hints=workbench.hardware_register_candidates(disasm.disassemble(bytes([0xAD,0x16,0x40]),0xC000,16,"test"))
         self.assertEqual(hints[0]["register"],"CONTROLLER1_OR_STROBE")
+    def test_integrated_report_writes_html_dashboard(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            rom=root/"sample.nes"
+            header=bytearray(16); header[:4]=bytes([0x4E,0x45,0x53,0x1A]); header[4]=1; header[5]=1
+            prg=bytearray(16384); prg[-6:]=bytes([0,0xC0,0,0xC0,0,0xC0])
+            rom.write_bytes(bytes(header)+bytes(prg)+bytes(8192))
+            result=workbench.analyze(rom,root/"out")
+            out=Path(result["output"])
+            self.assertTrue((out/"index.html").exists())
+            self.assertTrue((out/"analysis.json").exists())
+            self.assertIn("Raw CHR-ROM tile sheet",(out/"index.html").read_text())
     def test_chr_duplicate_patterns(self):
         r=workbench.graphics(bytes(16)+bytes(16)+bytes(range(16)))
         self.assertEqual(r["complete_tile_count"],3)
