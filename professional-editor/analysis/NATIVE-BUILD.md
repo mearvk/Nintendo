@@ -14,14 +14,14 @@ Binaries:
 - `build/nes-native-c` — native header inspection.
 - `build/nes-native-cpp` — native header inspection.
 - `build/nes-rom-build-c` — native fixed-length patch builder.
-- `build/nes-rom-build-cpp` — native fixed-length patch builder.\n- `build/nes-disasm-c` — native C99 disassembly and header summary.\n- `build/nes-disasm-cpp` — C++17 build of the shared native disassembly core.
+- `build/nes-rom-build-cpp` — native fixed-length patch builder.\n- `build/nes-disasm-c` — C99 linear-sweep disassembler.\n- `build/nes-disasm-cpp` — C++17 build of the shared native disassembly core.\n- `build/nes-disasm-c` — native C99 disassembly and header summary.\n- `build/nes-disasm-cpp` — C++17 build of the shared native disassembly core.
 
 CMake alternative:
 
     cmake -S . -B build-cmake
     cmake --build build-cmake --config Release
 
-## Native disassembly\n\n    build/nes-disasm-c --out-dir ./analysis-output game.nes\n    build/nes-disasm-cpp --out-dir ./analysis-output game.nes\n\nEach creates a title-specific directory containing `summary.md` and `disassembly.asm`. The decoder emits official opcode mnemonics it recognizes and emits unsupported/unofficial bytes as `.byte`. This is a linear sweep over available PRG bytes, not control-flow recovery: code/data boundaries, mapper bank windows, CPU addresses, and branch destinations remain candidates.\n\n## Native round-trip patch command
+## Native disassembly\n\n    build/nes-disasm-c --out-dir ./analysis-output game.nes\n    build/nes-disasm-cpp --out-dir ./analysis-output game.nes\n\nEach creates a title-specific directory containing `summary.md` and `disassembly.asm`. The decoder emits official opcode mnemonics it recognizes and emits unsupported/unofficial bytes as `.byte`. This is a linear sweep over available PRG bytes, not control-flow recovery: code/data boundaries, mapper bank windows, CPU addresses, and branch destinations remain candidates.\n\n## Native disassembly\n\n    build/nes-disasm-c --out-dir ./analysis-output game.nes\n    build/nes-disasm-cpp --out-dir ./analysis-output game.nes\n\nEach writes a title-specific folder containing summary.md and disassembly.asm. This is a conservative linear sweep, not mapper-aware control-flow recovery; CPU addresses and branch targets are candidates, and unknown or unofficial bytes remain .byte directives.\n\n## Native round-trip patch command
 
 Both builders use the same CLI and patch semantics:
 
