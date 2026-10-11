@@ -189,14 +189,19 @@ def palette_scene_snapshot(nametable, attributes, palette, chr_data=None, width=
                 subpalette = (attr[ai] >> shift) & 3
             else:
                 subpalette = 0
-            color_slot = 0 if (tile == 0) else subpalette * 4 + 1
-            color_index = pal[color_slot] & 0x3F
+            pixel = None
+            if chr_data is not None and len(chr_data) >= (tile + 1) * 16:
+                pattern = chr_data[tile * 16:(tile + 1) * 16]
+                pixel = ((pattern[0] >> 7) & 1) | (((pattern[8] >> 7) & 1) << 1)
+            color_slot = 0 if tile == 0 or pixel == 0 else subpalette * 4 + pixel
+            color_index = (pal[color_slot] & 0x3F) if pixel is not None or tile == 0 else None
             row.append({"tile": tile, "subpalette": subpalette, "palette_slot": color_slot,
-                        "color_index": color_index, "rgb": NES_PALETTE_RGB[color_index]})
+                        "top_left_pixel_value": pixel, "color_index": color_index,
+                        "rgb": NES_PALETTE_RGB[color_index] if color_index is not None else None})
         grid.append(row)
     return {"supported": True, "width": width, "height": height, "grid": grid,
         "chr_tile_pixels_included": False,
-        "note": "Color-index preview of tile cells only. Full pixel rendering requires CHR/CHR-RAM pattern data, attribute bytes, correct palette mirroring and PPU state."}
+        "note": "One representative top-left pixel per tile cell is decoded when CHR pattern bytes are supplied. This is a diagnostic grid, not a full-resolution rendered frame; full rendering requires all tile pixels, palette mirroring and synchronized PPU state."}
 
 def normalize_trace_events(trace):
     """Normalize common trace aliases without discarding source fields."""
@@ -229,8 +234,66 @@ def normalize_trace_events(trace):
                            for e in out if "input" in e],
                 "note": "Replay is a trace-derived event list, not an emulator command stream. Timing and button encoding must be confirmed for the source emulator."}}
 
+def mapper_trace_state(mapper, prg_size, events):
+    """Track mapper register writes visible in a supplied trace; this is not CPU emulation."""
+    prg_banks = max(1, int(prg_size or 0) // 16384)
+    chr_banks = max(1, int(prg_size or 0) // 8192)
+    state = {"mapper": mapper, "observed_write_count": 0, "snapshots": [], "registers": {}}
+    if mapper == 2:
+        state["registers"] = {"selected_prg_bank": 0, "fixed_prg_bank": prg_banks - 1}
+    elif mapper == 3:
+        state["registers"] = {"selected_chr_bank": 0}
+    elif mapper == 1:
+        state["registers"] = {"shift_register": 0x10, "control": 0x0C, "chr_bank_0": 0, "chr_bank_1": 0, "prg_bank": 0}
+    for index, event in enumerate(events or []):
+        address = _addr(event.get("address"))
+        value = _addr(event.get("value"))
+        if address is None or value is None or not 0x8000 <= address <= 0xFFFF:
+            continue
+        if mapper == 2 and address < 0xC000:
+            state["registers"]["selected_prg_bank"] = value % prg_banks
+        elif mapper == 3:
+            state["registers"]["selected_chr_bank"] = value % chr_banks
+        elif mapper == 1:
+            regs = state["registers"]
+            if value & 0x80:
+                regs["shift_register"] = 0x10
+                regs["control"] |= 0x0C
+            else:
+                complete = regs["shift_register"] & 1
+                regs["shift_register"] = (regs["shift_register"] >> 1) | ((value & 1) << 4)
+                if complete:
+                    data = regs["shift_register"] & 0x1F
+                    if address < 0xA000: regs["control"] = data
+                    elif address < 0xC000: regs["chr_bank_0"] = data
+                    elif address < 0xE000: regs["chr_bank_1"] = data
+                    else: regs["prg_bank"] = data
+                    regs["shift_register"] = 0x10
+                else:
+                    continue
+        else:
+            continue
+        state["observed_write_count"] += 1
+        state["snapshots"].append({"event_index": event.get("event_index", index), "pc": event.get("pc"),
+            "address": f"0x{address:04X}", "value": f"0x{value:02X}", "registers": dict(state["registers"])})
+    state["snapshots"] = state["snapshots"][:2000]
+    state["note"] = "Derived only from explicit trace events with address/value fields in mapper register space; writes and bank numbers require mapper/trace validation."
+    return state
+
 def analyze_advanced(mapper, prg_size, instructions, trace=None, rules=None):
-    events = normalize_trace_events(trace) if trace is not None else normalize_trace_events([])
+    normalized = normalize_trace_events(trace) if trace is not None else normalize_trace_events([])
+    events = normalized.get("events", [])
+    scene = {"available": False, "reason": "Requires explicit nametable, attribute-table, palette and CHR/CHR-RAM snapshots from a compatible emulator trace."}
+    for event in events:
+        nametable = event.get("nametable")
+        attributes = event.get("attributes", event.get("attribute_table"))
+        palette = event.get("palette")
+        chr_data = event.get("chr", event.get("chr_ram"))
+        if nametable is not None and attributes is not None and palette is not None:
+            scene = palette_scene_snapshot(nametable, attributes, palette, chr_data)
+            scene["event_index"] = event.get("event_index")
+            scene["frame"] = event.get("frame")
+            break
     return {
         "schema_version": SCHEMA_VERSION,
         "memory_classification": [
@@ -238,10 +301,11 @@ def analyze_advanced(mapper, prg_size, instructions, trace=None, rules=None):
             for i in (instructions or []) if _addr(i.get("operand")) is not None
         ][:10000],
         "mapper_state_model": mapper_profile(mapper, prg_size),
-        "normalized_trace": {k:v for k,v in events.items() if k != "events"},
-        "trace_events_normalized": events.get("events", [])[:10000],
+        "mapper_trace_state": mapper_trace_state(mapper, prg_size, events),
+        "normalized_trace": {k:v for k,v in normalized.items() if k != "events"},
+        "trace_events_normalized": events[:10000],
         "rules_evaluation": evaluate_rules(rules or rules_template(), instructions, trace if isinstance(trace, dict) else None),
-        "palette_scene": {"available": False, "reason": "Requires explicit nametable, attribute-table, palette and CHR/CHR-RAM snapshots from a compatible emulator trace."},
+        "palette_scene": scene,
         "limitations": [
             "Mapper profiles describe candidate bank windows; they do not execute mapper registers or emulate bank switching.",
             "Scene reconstruction needs synchronized PPU snapshots; a nametable alone cannot reconstruct sprites or full pixels.",
