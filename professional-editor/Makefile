@@ -35,7 +35,7 @@ $(BUILD_DIR)/nes-dev-env: analysis/nes_dev_environment.py | $(BUILD_DIR)
 	@printf '%s\n' '#!/bin/sh' 'exec python3 analysis/nes_dev_environment.py "$$@"' > "$@"
 	chmod +x "$@"
 
-# Build all four native terminal tools for the current operating system.
+# Build all six native terminal tools for the current operating system.
 # CI publishes the matching OS-specific binaries as downloadable artifacts.
 release-binaries: native
 	@echo "Native C/C++ terminal binaries are ready in $(BUILD_DIR)/"
