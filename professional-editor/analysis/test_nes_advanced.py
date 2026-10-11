@@ -41,6 +41,16 @@ class AdvancedAnalysisTests(unittest.TestCase):
         report = nes_advanced.evaluate_rules(rules, [{"cpu_address_candidate":"0x8000"}], trace)
         self.assertIn("conflicts-with-declared-rule", [x["status"] for x in report["checks"]])
 
+    def test_forbidden_action_observed_is_conflict(self):
+        rules = {"schema_version":"1.0","title":"Test","objective":"","constraints":[],
+            "actions":[{"address":"0x8000","label":"bad route","verdict":"forbidden"}]}
+        trace = {"events":[{"pc":"0x8000"}]}
+        report = nes_advanced.evaluate_rules(rules, [{"cpu_address_candidate":"0x8000"}], trace)
+        self.assertEqual(report["checks"][0]["status"], "conflicts-with-declared-rule")
+
+    def test_empty_rules_template_has_no_fake_actions(self):
+        self.assertEqual(nes_advanced.rules_template("Demo")["actions"], [])
+
     def test_trace_alias_normalization_and_replay(self):
         result = nes_advanced.normalize_trace_events({"adapter":"test","events":[
             {"PC":"0x8000","frame_number":"2","buttons":"A"}]})
