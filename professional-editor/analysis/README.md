@@ -1,6 +1,6 @@
 # ROM Analysis Tools
 
-The dependency-free Python 3.10+ tools provide the feature-complete analysis, circuit/action evidence, trace reporting, per-title workspace generation, and JSON manifest round-trip workflow. Native C99 and C++17 counterparts are included for header inspection and fixed-length ROM patching; see [NATIVE-BUILD.md](NATIVE-BUILD.md) for the current native coverage boundary.
+The dependency-free Python 3.10+ tools provide the feature-complete analysis, circuit/action evidence, trace reporting, per-title workspace generation, and JSON manifest round-trip workflow. Native C99 and C++17 counterparts are included for header inspection, fixed-length ROM patching, and conservative 6502/2A03 linear-sweep disassembly; see [NATIVE-BUILD.md](NATIVE-BUILD.md) for the current native coverage boundary.
 
 ## Build
 
@@ -13,7 +13,7 @@ make test
 make dev-env-help
 ```
 
-Run `build/nes-native-c ROM.nes` or `build/nes-native-cpp ROM.nes` for native header inspection. `make release-binaries` builds the four native C/C++ terminal executables for the current OS. The GitHub Actions **NES ROM Analysis Native Build** workflow also publishes OS-specific downloadable artifacts for Linux, macOS, and Windows (including `.exe` files). Native patch builders are `build/nes-rom-build-c` and `build/nes-rom-build-cpp`. CMake is also supported via `cmake -S . -B build-cmake && cmake --build build-cmake`.
+Run `build/nes-native-c ROM.nes` or `build/nes-native-cpp ROM.nes` for native header inspection, and `build/nes-disasm-c ROM.nes` or `build/nes-disasm-cpp ROM.nes` for native linear-sweep disassembly. `make release-binaries` builds the six native C/C++ terminal executables for the current OS. The GitHub Actions **NES ROM Analysis Native Build** workflow also publishes OS-specific downloadable artifacts for Linux, macOS, and Windows (including `.exe` files). Native patch builders are `build/nes-rom-build-c` and `build/nes-rom-build-cpp`. CMake is also supported via `cmake -S . -B build-cmake && cmake --build build-cmake`.
 
 ## Examples
 
