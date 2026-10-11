@@ -25,20 +25,8 @@ def rules_template(title=""):
         "title": title,
         "objective": "",
         "constraints": [],
-        "actions": [
-            {
-                "address": "0x8000",
-                "label": "Replace this example with a verified action address",
-                "verdict": "allowed",
-                "rationale": "Template only; remove or edit this entry.",
-                "must_precede": [],
-                "must_follow": [],
-                "max_visits": None
-            }
-        ],
-        "state_assertions": [
-            {"address": "0x0000", "operator": "equals", "value": 0, "label": "example only"}
-        ],
+        "actions": [],
+        "state_assertions": [],
         "notes": [
             "Addresses and meanings must be verified for this title and mapper.",
             "A ruleset is a research hypothesis, not proof that a playthrough is correct."
@@ -83,11 +71,17 @@ def evaluate_rules(rules, instructions, trace=None):
         if addr is not None and observed_pc:
             count = observed_pc.count(addr)
             evidence.append(f"Supplied trace PC hits: {count}.")
-            if count:
-                status = "consistent-with-declared-rule" if status != "conflicts-with-declared-rule" else status
-            elif action.get("verdict") == "required":
+            if action.get("verdict") == "forbidden" and count:
+                status = "conflicts-with-declared-rule"
+                evidence.append("The forbidden address was observed in the supplied trace.")
+            elif action.get("verdict") == "required" and count:
+                status = "consistent-with-declared-rule"
+            elif action.get("verdict") == "required" and not count:
                 status = "unresolved"
                 evidence.append("Required action was not observed in this trace; trace coverage may be incomplete.")
+            elif action.get("verdict") == "forbidden" and not count:
+                status = "unresolved"
+                evidence.append("No hit was observed, but trace completeness is unknown.")
         elif action.get("verdict") == "forbidden":
             status = "unresolved"
             evidence.append("Static presence alone does not prove execution; a forbidden action needs runtime path evidence.")
