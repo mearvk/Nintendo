@@ -145,8 +145,8 @@ def init_project(rom_path, project_dir, title=None, force=False):
         raise FileExistsError(f"Project directory is not empty: {project_dir}; use --force to reuse it")
     baseline = project_dir / "source" / "original.nes"
     manifest = project_dir / "rom-project.json"
-    if baseline.exists() and sha256(baseline.read_bytes()) != sha256(data) and not force:
-        raise FileExistsError("Project already has a different baseline ROM; use a new project directory")
+    if baseline.exists() and sha256(baseline.read_bytes()) != sha256(data):
+        raise FileExistsError("Project already has a different baseline ROM; use a new project directory. --force does not replace the immutable baseline.")
     if not baseline.exists():
         atomic_write(baseline, data)
     if manifest.exists() and not force:
