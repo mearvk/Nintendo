@@ -60,6 +60,8 @@ def inspect_rom(data):
         chr_size = h[5] * 8192
     offset = 16 + trainer
     declared_end = offset + prg_size + chr_size
+    if declared_end > len(data):
+        raise ValueError(f"ROM is truncated: header declares at least {declared_end} bytes, found {len(data)}")
     return {
         "format": "NES 2.0" if nes2 else "iNES",
         "mapper": mapper,
@@ -215,11 +217,11 @@ def build_project(manifest_path, output=None, report_path=None):
         end = offset + len(expected)
         if offset < 0 or end > len(original):
             raise ValueError(f"{patch_id}: patch range is outside the baseline ROM")
+        if any(pos in occupied for pos in range(offset, end)):
+            raise ValueError(f"{patch_id}: patch overlaps another enabled patch")
         actual = bytes(result[offset:end])
         if actual != expected:
             raise ValueError(f"{patch_id}: expected-byte mismatch at file offset 0x{offset:X}; baseline may differ or patches overlap")
-        if any(pos in occupied for pos in range(offset, end)):
-            raise ValueError(f"{patch_id}: patch overlaps another enabled patch")
         occupied.update(range(offset, end))
         if len(replacement) != len(expected):
             raise ValueError(f"{patch_id}: variable-length edits are not supported by this fixed-length patch builder; update banks/pointers with a future linker workflow")
